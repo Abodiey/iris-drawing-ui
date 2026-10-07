@@ -1,6 +1,6 @@
 # Iris Drawing
 
-A standalone PC Roblox UI library with a restrained iOS-inspired dark design.
+A standalone PC Roblox UI library with a restrained iOS-inspired light design.
 Every visible element uses `Drawing.new`. One completely transparent, offscreen
 CoreGui TextBox supplies native keyboard editing, selection, and clipboard input.
 There is no gameplay code and no dependency on JJS or any other project.
@@ -9,7 +9,7 @@ There is no gameplay code and no dependency on JJS or any other project.
 
 ```lua
 local UI = loadstring(game:HttpGet(
-    'https://raw.githubusercontent.com/Abodiey/iris-drawing-ui/main/dist/Iris.lua?v=1.0.3'
+    'https://raw.githubusercontent.com/Abodiey/iris-drawing-ui/main/dist/Iris.lua?v=1.0.4'
 ))()
 local Window = UI:CreateWindow({Name = 'Example'})
 local Section = Window:AddSection('General')
@@ -17,18 +17,20 @@ local Section = Window:AddSection('General')
 
 `dist/Iris.lua` bundles all modules; loading it performs no further HTTP requests.
 Use a commit SHA in place of `main` to pin a specific revision.
-Version 1.0.3 targets the [Synapse Drawing contract](https://synapsexdocs.github.io/libraries/drawing/):
-`Transparency = 1` is opaque and `0` is invisible. Drawing properties are assigned
-directly. This corrects the invisible settled interface in v1.0.2. The complete
-[example](examples/Example.lua) demonstrates every control and config handling.
+Version 1.0.4 adds the light appearance, smooth native circle knobs, and scoped
+wheel capture so scrolling over the interface does not also zoom the camera.
+The complete [example](examples/Example.lua) demonstrates every control and config handling.
 
 **Runtime:** PC keyboard/mouse, Roblox client services, CoreGui input access,
-and a Synapse-compatible Drawing API supporting Square/Text, `TextBounds`, `ZIndex`,
-`Font = 2`, `Remove()`, and `Transparency` where 1 is opaque and 0 is fully transparent. Coordinates are
-screen pixels, matching `UserInputService:GetMouseLocation()`. Your stated
-target is Real Executor (Project Real) 2.7.4. Native Luau and mock interaction
-tests pass; live Real 2.7.4 rendering and native focus have not been verified
-in this development environment. This is not a stock Roblox Studio UI module.
+and a [Synapse-compatible Drawing API](https://synapsexdocs.github.io/libraries/drawing/)
+supporting Square/Text/Circle, `TextBounds`, `ZIndex`, `Font = 2`, `NumSides`,
+`Remove()`, and `Transparency` where 1 is opaque and 0 is fully transparent.
+Layout and pointer coordinates use viewport pixels; the current Roblox GUI
+inset is removed from mouse polling for hit testing, dragging, and scrolling.
+All visible pixels remain Drawing objects. The hidden TextBox only handles input.
+Madium is the current target; native Luau mock tests cover interactions and cleanup.
+Live Madium focus, camera input consumption, and coordinate alignment still need
+verification in the executor. This is not a stock Roblox Studio UI module.
 
 ## Window and sections
 

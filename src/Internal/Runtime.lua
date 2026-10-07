@@ -6,6 +6,8 @@ function Runtime.new(ui)
     local self=setmetatable({ui=ui,connections={},hits={},dirty=true,alpha=0,height=52,notifications={},held={},animations={},pointer=Vector2.new(0,0)},Runtime)
     local ok,message=pcall(function()
         self.input=game:GetService('UserInputService')
+        self.guiService=game:GetService('GuiService')
+        self.actionService=game:GetService('ContextActionService')
         self.renderService=game:GetService('RunService')
         self.workspace=game:GetService('Workspace')
         self.renderer=Renderer.new()
@@ -31,6 +33,13 @@ function Runtime.new(ui)
         self:Connect(self.input.InputChanged,function(input) self:Changed(input) end)
         self:Connect(self.input.InputEnded,function(input) self:Ended(input) end)
         self:Connect(self.input.WindowFocusReleased,function() self:CancelInteraction(true) end)
+        self.scrollAction='IrisDrawingWheel_'..tostring(self)
+        self.actionService:BindActionAtPriority(self.scrollAction,function()
+            if self.ui._destroyed then return Enum.ContextActionResult.Pass end
+            local p=self:MousePosition()
+            if self:OwnsPointer(p) then return Enum.ContextActionResult.Sink end
+            return Enum.ContextActionResult.Pass
+        end,false,Enum.ContextActionPriority.High.Value+100,Enum.UserInputType.MouseWheel)
         self.lastRenderSignal=os.clock()
         self.lastUpdate=self.lastRenderSignal
         self:Connect(self.renderService.RenderStepped,function(dt)
@@ -38,7 +47,7 @@ function Runtime.new(ui)
             self:Frame(dt)
         end)
         self:StartWatchdog()
-        self.pointer=self.input:GetMouseLocation()
+        self.pointer=self:MousePosition()
     end)
     if not ok then self:Destroy(); error('Iris Drawing initialization failed: '..tostring(message)) end
     return self
@@ -72,6 +81,19 @@ function Runtime:StartWatchdog()
 end
 function Runtime:Connect(signal,fn) table.insert(self.connections,signal:Connect(fn)) end
 function Runtime:Dirty() self.dirty=true end
+function Runtime:MousePosition()
+    -- Drawing layout uses viewport coordinates; mouse polling includes the GUI inset.
+    -- Read it dynamically: Roblox can change the inset when its top bar changes.
+    local mouse=self.input:GetMouseLocation()
+    local inset=self.guiService:GetGuiInset()
+    return Vector2.new(mouse.X-inset.X,mouse.Y-inset.Y)
+end
+function Runtime:OwnsPointer(p)
+    local w=self.window
+    if not w or not w.Visible then return false end
+    if self.popup and Util.inside(self.popup.rect,p) then return true end
+    return Util.inside(Util.rect(w.Position.X,w.Position.Y,w.Size.X,w.Minimized and 52 or self.height),p)
+end
 function Runtime:Viewport()
     local camera=self.workspace.CurrentCamera
     return camera and camera.ViewportSize or Vector2.new(1280,720)
@@ -360,7 +382,7 @@ function Runtime:Began(input,processed)
         return
     end
     if kind~=Enum.UserInputType.MouseButton1 then return end
-    self.pointer=self.input:GetMouseLocation()
+    self.pointer=self:MousePosition()
     if self.dirty then self:Draw() end
     if self.popup and not Util.inside(self.popup.rect,self.pointer) then self:ClosePopup(); return end
     local hit=self:At(self.pointer)
@@ -402,10 +424,10 @@ end
 function Runtime:Changed(input)
     if self.ui._destroyed then return end
     if input.UserInputType==Enum.UserInputType.MouseMovement then
-        self.pointer=self.input:GetMouseLocation()
+        self.pointer=self:MousePosition()
         if self.drag then self:UpdateDrag() else self:Hover() end
     elseif input.UserInputType==Enum.UserInputType.MouseWheel then
-        self.pointer=self.input:GetMouseLocation()
+        self.pointer=self:MousePosition()
         if self.dirty then self:Draw() end
         if self.drag then return end
         local delta=input.Position.Z*30
@@ -445,6 +467,8 @@ function Runtime:Notify(opts)
     self:Dirty()
 end
 function Runtime:Destroy()
+    if self.scrollAction and self.actionService then self.actionService:UnbindAction(self.scrollAction) end
+    self.scrollAction=nil
     if self.watchdog and task and type(task.cancel)=='function' and self.watchdog~=coroutine.running() then
         pcall(task.cancel,self.watchdog)
     end

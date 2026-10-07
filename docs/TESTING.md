@@ -1,9 +1,9 @@
 # Validation and live runtime smoke test
 
-Verified locally on 2026-10-07:
+Verified locally on 2026-10-08:
 
 - All six source modules and the bundled release parse under native Luau 0.741.
-- 36 interaction groups pass under native Luau and Lupa 2.8 (Lua 5.5).
+- 39 interaction groups pass under native Luau and Lupa 2.8 (Lua 5.5).
 - The complete example executes, reruns, and cleans up under both mock runtimes.
 - The bundle reproduces exactly from source with `scripts/build.py --check`.
 - Drawing-only layout was visually reviewed using mock-rendered previews.
@@ -23,12 +23,11 @@ The mocks exercise the actual release, not a separate implementation. Coverage:
   idle primitive reuse, centralized connections, callback errors, reentrant
   destroy, failed initialization cleanup, and fresh reload.
 
-Real Executor and Roblox are running, but the computer-use helper fails to
-initialize, so live window interaction cannot be verified automatically.
-The stated target is Real Executor (Project Real) 2.7.4 with standard Drawing
-support. The simulations cannot certify native focus/clipboard behavior,
-actual font metrics, transparency, display scaling, or that executor's
-implementation of Drawing. No live-runtime pass is claimed.
+The user confirmed the previous invisible-interface issue came from Real and
+provided a visible Madium screenshot. Version 1.0.4's light theme, mouse inset
+normalization, wheel capture, and native circles have mock coverage; these new
+changes have not yet been verified through live Madium interactions. The mocks
+cannot certify native focus/clipboard, actual font metrics, or executor rendering.
 
 Before treating a particular executor build as certified, run
 `examples/Example.lua` in it and check these behaviors:
@@ -70,3 +69,9 @@ text must remain opaque after fade-in. The mock visibility count follows this
 same contract. These checks do not establish live executor rendering.
 
 Contract reference: https://synapsexdocs.github.io/libraries/drawing/
+
+Version 1.0.4 regressions cover changing GUI insets during pointer input,
+wheel sink/pass over windows and popups, hidden/minimized bounds, independent
+wheel action cleanup, Circle pooling/64 sides, and partially clipped circle bands.
+Also check camera zoom stays unchanged while wheeling over the window and works
+normally outside it; verify clicks line up with the cursor in Madium.

@@ -1,6 +1,13 @@
 local Util=require('Internal.Util')
 local Views={}
-Views.Theme={bg=Color3.fromRGB(23,24,28),card=Color3.fromRGB(34,35,41),hover=Color3.fromRGB(43,45,52),field=Color3.fromRGB(48,50,58),text=Color3.fromRGB(242,242,247),muted=Color3.fromRGB(152,154,165),accent=Color3.fromRGB(10,132,255),green=Color3.fromRGB(48,209,88),line=Color3.fromRGB(55,57,65),white=Color3.new(1,1,1)}
+Views.Theme={
+    bg=Color3.fromRGB(246,247,250), card=Color3.fromRGB(255,255,255),
+    hover=Color3.fromRGB(240,244,251), field=Color3.fromRGB(235,237,242),
+    text=Color3.fromRGB(29,29,31), muted=Color3.fromRGB(110,110,115),
+    accent=Color3.fromRGB(0,122,255), green=Color3.fromRGB(52,199,89),
+    line=Color3.fromRGB(217,220,226), white=Color3.new(1,1,1),
+    knobBorder=Color3.fromRGB(180,185,195),
+}
 function Views.Control(rt,c,r,clip)
     local d,t=rt.renderer,Views.Theme
     local hover=rt.hoverOwner==c
@@ -19,7 +26,8 @@ function Views.Control(rt,c,r,clip)
         local ratio=c._visual or (c.Value-c.Min)/(c.Max-c.Min)
         d:Round(track,2,t.field,clip,12)
         d:Round(Util.rect(track.x,track.y,track.w*ratio,track.h),2,t.accent,clip,13)
-        d:Round(Util.rect(track.x+track.w*ratio-7,track.y-5,14,14),7,t.white,clip,14)
+        d:Round(Util.rect(track.x+track.w*ratio-8,track.y-6,16,16),8,t.knobBorder,clip,14)
+        d:Round(Util.rect(track.x+track.w*ratio-7,track.y-5,14,14),7,t.white,clip,15)
         rt:Hit(r,c,'slider',clip,track); return
     end
     local valueWidth=math.min(180,w*0.45)
@@ -49,7 +57,7 @@ function Views.Control(rt,c,r,clip)
         rt:Hit(r,c,'textbox',clip,field)
     elseif kind=='Keybind' then
         d:Round(field,6,rt.capture==c and t.accent or t.field,clip,12)
-        d:Text(rt.capture==c and 'Press key...' or c.Value,field.x+8,field.y+5,t.text,field.w-16,clip,13,13)
+        d:Text(rt.capture==c and 'Press key...' or c.Value,field.x+8,field.y+5,rt.capture==c and t.white or t.text,field.w-16,clip,13,13)
         rt:Hit(r,c,'keybind',clip)
     elseif kind=='ColorPicker' then
         d:Round(field,6,t.field,clip,12)
@@ -118,7 +126,7 @@ function Views.Popup(rt)
             local selected=c.Kind=='Dropdown' and c.Value==item
             if c.Kind=='MultiDropdown' then for _,name in ipairs(c.Value) do if name==item then selected=true end end end
             if selected or (rt.hoverOwner==c and rt.hoverRole=='option' and rt.hoverData==item) then d:Round(row,5,selected and t.accent or t.hover,clip,42) end
-            d:Text(item,row.x+8,row.y+7,t.text,row.w-16,clip,43,13)
+            d:Text(item,row.x+8,row.y+7,selected and t.white or t.text,row.w-16,clip,43,13)
             rt:Hit(row,c,'option',clip,item)
         end
         if #c.Options==0 then d:Text('No options',clip.x+8,clip.y+7,t.muted,clip.w-16,clip,43,13) end

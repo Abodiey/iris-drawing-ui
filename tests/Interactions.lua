@@ -425,8 +425,69 @@ test('notification text stays visible after its fade-in completes',function()
     assert(title and title.Transparency>.999,'Notification became transparent after fading in')
     Mock.tick(300); equal(#rt.notifications,0)
 end)
+test('viewport mouse mapping follows inset changes for clicks and wheel ownership',function()
+    window.Scroll=0; rt:Dirty(); Mock.tick(60)
+    local row=hit(rt,toggle,'toggle').rect
+    Mock.inset=Vector2.new(0,36)
+    local value=toggle.Value
+    Mock.click(row.x+20,row.y+20+36)
+    equal(toggle.Value,not value)
+    equal(rt.pointer.Y,row.y+20)
+    local action=Mock.actions[rt.scrollAction]
+    equal(action.fn(),Enum.ContextActionResult.Sink)
+    Mock.inset=Vector2.new(4,58)
+    Mock.move(row.x+24,row.y+78)
+    equal(rt.pointer.X,row.x+20); equal(rt.pointer.Y,row.y+20)
+    Mock.inset=Vector2.new(0,0)
+end)
+
+test('wheel capture is scoped and unbound independently on destroy',function()
+    local action=Mock.actions[rt.scrollAction]
+    assert(action and action.priority>Enum.ContextActionPriority.High.Value)
+    equal(action.input,Enum.UserInputType.MouseWheel)
+    Mock.move(window.Position.X+10,window.Position.Y+10)
+    equal(action.fn(),Enum.ContextActionResult.Sink)
+    Mock.move(0,0); equal(action.fn(),Enum.ContextActionResult.Pass)
+    window:SetVisible(false); equal(action.fn(),Enum.ContextActionResult.Pass)
+    window:SetVisible(true); window:SetMinimized(true); Mock.tick(60)
+    Mock.move(window.Position.X+10,window.Position.Y+80)
+    equal(action.fn(),Enum.ContextActionResult.Pass)
+    window:SetMinimized(false); Mock.tick(60)
+    clickHit(rt,dropdown,'dropdown'); Mock.tick(1)
+    local rect=rt.popup.rect
+    Mock.move(rect.x+8,rect.y+8); equal(action.fn(),Enum.ContextActionResult.Sink)
+    rt:ClosePopup()
+    local other=NewUI(Bundle); other:CreateWindow({Name='Other'})
+    local name=other._runtime.scrollAction
+    assert(name~=rt.scrollAction and Mock.actions[name])
+    other:Destroy(); assert(not Mock.actions[name] and Mock.actions[rt.scrollAction])
+end)
+
+test('native circles are smooth pooled and fall back to clipping bands',function()
+    local d=rt.renderer
+    d:Begin(1)
+    d:Round({x=10,y=10,w=20,h=20},10,Color3.new(1,1,1),{x=0,y=0,w=50,h=50})
+    d:Finish()
+    equal(d.used.Circle,1); equal(d.used.Square,0)
+    local circle=d.pools.Circle[1]
+    equal(circle.NumSides,64); equal(circle.Radius,10)
+    equal(circle.Position.X,20); equal(circle.Transparency,1)
+    d:Begin(1); d:Round({x=10,y=10,w=20,h=20},10,Color3.new(1,1,1)); d:Finish()
+    equal(d.pools.Circle[1],circle)
+    d:Begin(1)
+    local clip={x=15,y=15,w=10,h=10}
+    d:Round({x=10,y=10,w=20,h=20},10,Color3.new(1,1,1),clip); d:Finish()
+    equal(d.used.Circle,0); assert(not circle.Visible and d.used.Square>0)
+    for i=1,d.used.Square do
+        local band=d.pools.Square[i]
+        assert(band.Position.X>=15 and band.Position.Y>=15)
+        assert(band.Position.X+band.Size.X<=25 and band.Position.Y+band.Size.Y<=25)
+    end
+    rt:Dirty(); Mock.tick(1)
+end)
+
 test('Destroy idempotent cleanup and fresh reload',function()
-    ui:Destroy(); ui:Destroy(); equal(Mock.liveConnections(),0); equal(Mock.visibleDrawings(),0)
+    ui:Destroy(); ui:Destroy(); assert(next(Mock.actions)==nil); equal(Mock.liveConnections(),0); equal(Mock.visibleDrawings(),0)
     for _,d in ipairs(Mock.drawings) do assert(d.Removed,'Leaked drawing') end
     for _,g in ipairs(Mock.instances) do assert(g.Destroyed,'Leaked invisible instance') end
     assert(next(ui.Flags)==nil and next(ui._flags)==nil and #ui._controls==0)

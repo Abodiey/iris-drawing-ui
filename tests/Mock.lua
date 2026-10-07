@@ -16,6 +16,7 @@ local function signal()
 end
 Vector2={new=function(x,y) return setmetatable({X=x,Y=y},{__type='Vector2'}) end}
 Mock.mouse=Vector2.new(0,0)
+Mock.inset=Vector2.new(0,0)
 UDim2={fromOffset=function(x,y) return {X=x,Y=y} end}
 local colorMethods={}
 function colorMethods:ToHSV()
@@ -40,12 +41,12 @@ function Color3.fromHSV(h,s,v)
     local c=colors[i+1]; return Color3.new(c[1],c[2],c[3])
 end
 function typeof(v) return type(v)=='table' and (getmetatable(v) or {}).__type or type(v) end
-Enum={KeyCode={},UserInputType={}}
+Enum={KeyCode={},UserInputType={},ContextActionResult={Pass='Pass',Sink='Sink'},ContextActionPriority={High={Value=3000}}}
 for word in ('None Unknown Escape Return KeypadEnter Backspace Delete RightShift LeftShift LeftControl RightControl Space Tab Insert Home End PageUp PageDown F1 F2 F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 A B C D E F G H I J K L M N O P Q R S T U V W X Y Z One Two Three Four Five Six Seven Eight Nine Zero'):gmatch('%S+') do Enum.KeyCode[word]={Name=word} end
 for _,name in ipairs({'Keyboard','MouseButton1','MouseButton2','MouseMovement','MouseWheel'}) do Enum.UserInputType[name]={Name=name} end
 Drawing={}
 function Drawing.new(kind)
-    assert(kind=='Square' or kind=='Text')
+    assert(kind=='Square' or kind=='Text' or kind=='Circle')
     local object={_props={Visible=false,Text='',Size=15},_kind=kind,Removed=false}
     function object:Remove() assert(not self.Removed,'Double Remove'); self.Removed=true end
     setmetatable(object,{__index=function(o,k)
@@ -60,7 +61,15 @@ function uis:GetFocusedTextBox() return Mock.focused end
 local run={RenderStepped=signal()}
 local workspace={CurrentCamera={ViewportSize=Vector2.new(1000,800)}}
 local core={}
-local services={UserInputService=uis,RunService=run,Workspace=workspace,CoreGui=core}
+Mock.actions={}
+local cas={}
+function cas:BindActionAtPriority(name,fn,touch,priority,input)
+    Mock.actions[name]={fn=fn,priority=priority,input=input}
+end
+function cas:UnbindAction(name) Mock.actions[name]=nil end
+local guiService={}
+function guiService:GetGuiInset() return Mock.inset,Vector2.new(0,0) end
+local services={GuiService=guiService,UserInputService=uis,ContextActionService=cas,RunService=run,Workspace=workspace,CoreGui=core}
 game={GetService=function(_,name) assert(services[name],name); return services[name] end}
 Instance={}
 function Instance.new(kind)
