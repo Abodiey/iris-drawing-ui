@@ -397,6 +397,36 @@ test('asynchronous frame failures are explicit and do not spam',function()
     runtime.Step=step; Mock.tick(1); assert(not runtime.frameError)
     item:Destroy()
 end)
+test('settled window text and controls remain opaque under the sUNC contract',function()
+    window:SetVisible(true); window:SetMinimized(false); window.Scroll=0; rt:Dirty(); Mock.tick(60)
+    local title,toggleText,background
+    for _,d in ipairs(Mock.drawings) do
+        if not d.Removed and d.Visible then
+            if d._kind=='Text' and d.Text==window.Name then title=d end
+            if d._kind=='Text' and d.Text==toggle.Name and d.ZIndex==12 then toggleText=d end
+            if d._kind=='Square' and d.ZIndex==2 then background=d end
+        end
+    end
+    assert(title and title.Transparency==0,'Settled title is invisible on sUNC Drawing')
+    assert(toggleText and toggleText.Transparency==0,'Settled control text is invisible on sUNC Drawing')
+    assert(background and math.abs(background.Transparency-.03)<.00001,'Background opacity was inverted')
+end)
+test('sUNC hide animation increases transparency instead of making pixels opaque',function()
+    window:SetVisible(false); Mock.tick(1)
+    local title
+    for _,d in ipairs(Mock.drawings) do if not d.Removed and d.Visible and d._kind=='Text' and d.Text==window.Name then title=d end end
+    assert(title and title.Transparency>0 and title.Transparency<1,'Hide must fade pixels toward transparent')
+    Mock.tick(60); equal(Mock.visibleDrawings(),0)
+    window:SetVisible(true); Mock.tick(60)
+end)
+test('notification text stays visible after its fade-in completes',function()
+    ui:Notify({Title='Opacity regression',Content='Visible notification',Duration=4})
+    Mock.tick(60)
+    local title
+    for _,d in ipairs(Mock.drawings) do if not d.Removed and d.Visible and d._kind=='Text' and d.Text=='Opacity regression' then title=d end end
+    assert(title and title.Transparency<.001,'Notification became transparent after fading in')
+    Mock.tick(300); equal(#rt.notifications,0)
+end)
 test('Destroy idempotent cleanup and fresh reload',function()
     ui:Destroy(); ui:Destroy(); equal(Mock.liveConnections(),0); equal(Mock.visibleDrawings(),0)
     for _,d in ipairs(Mock.drawings) do assert(d.Removed,'Leaked drawing') end

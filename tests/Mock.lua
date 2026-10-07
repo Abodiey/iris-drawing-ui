@@ -109,7 +109,7 @@ function Mock.liveConnections()
     local n=0; for _,c in ipairs(Mock.connections) do if c.Connected then n=n+1 end end; return n
 end
 function Mock.visibleDrawings()
-    local n=0; for _,d in ipairs(Mock.drawings) do if not d.Removed and d.Visible then n=n+1 end end; return n
+    local n=0; for _,d in ipairs(Mock.drawings) do if not d.Removed and d.Visible and (d.Transparency or 0)<1 then n=n+1 end end; return n
 end
 function Mock.focusLost() uis.WindowFocusReleased:Fire() end
 function Mock.viewport(x,y) workspace.CurrentCamera.ViewportSize=Vector2.new(x,y); Mock.tick(1) end

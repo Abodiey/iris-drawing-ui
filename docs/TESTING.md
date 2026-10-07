@@ -3,7 +3,7 @@
 Verified locally on 2026-10-07:
 
 - All six source modules and the bundled release parse under native Luau 0.741.
-- 33 interaction groups pass under native Luau and Lupa 2.8 (Lua 5.5).
+- 36 interaction groups pass under native Luau and Lupa 2.8 (Lua 5.5).
 - The complete example executes, reruns, and cleans up under both mock runtimes.
 - The bundle reproduces exactly from source with `scripts/build.py --check`.
 - Drawing-only layout was visually reviewed using mock-rendered previews.
@@ -63,3 +63,13 @@ The v1.0.1 regression cases additionally cover synchronous first paint without
 any engine frame delivery, opaque render-property handles, property ordering,
 missing/recovered RenderStepped delivery, watchdog cancellation, synchronous
 startup failure cleanup, and non-spamming asynchronous error reporting.
+
+Version 1.0.2 fixes a reproduced visibility failure: the old renderer wrote
+opacity directly into Drawing.Transparency, making settled text completely
+transparent under the sUNC contract. The new settled-window regression fails
+on v1.0.1 with "Settled title is invisible on sUNC Drawing" and passes after
+converting opacity to 1 - opacity. Separate tests check hide-direction and
+notification visibility. Mock.visibleDrawings now excludes fully transparent
+objects, instead of treating Visible=true as proof of visible pixels.
+
+Contract reference: https://docs.sunc.io/Drawing/#shared-properties

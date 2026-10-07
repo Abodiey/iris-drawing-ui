@@ -56,7 +56,8 @@ function Renderer:Rect(r, color, clip, z, opacity)
     self:Set(d,'Position',Vector2.new(visible.x,visible.y))
     self:Set(d,'Size',Vector2.new(visible.w,visible.h))
     self:Set(d,'Color',color)
-    self:Set(d,'Transparency',self.alpha*(opacity or 1))
+    -- Internal alpha is opacity; sUNC Drawing uses 0=opaque, 1=transparent.
+    self:Set(d,'Transparency',1-self.alpha*(opacity or 1))
     self:Set(d,'Visible',true)
 end
 function Renderer:Round(r, radius, color, clip, z, opacity)
@@ -97,7 +98,7 @@ function Renderer:Text(text, x, y, color, width, clip, z, size)
     local d=self:Acquire('Text',z)
     self:Set(d,'Position',Vector2.new(x,y)); self:Set(d,'Size',size)
     self:Set(d,'Text',text); self:Set(d,'Color',color)
-    self:Set(d,'Transparency',self.alpha); self:Set(d,'Visible',true)
+    self:Set(d,'Transparency',1-self.alpha); self:Set(d,'Visible',true)
 end
 function Renderer:Finish()
     for kind,pool in pairs(self.pools) do

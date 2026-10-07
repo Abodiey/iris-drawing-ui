@@ -30,6 +30,6 @@ and hiding. Rectangles clip geometrically. Text draws only when full bounds
 fit and is truncated horizontally. Rounded shapes use clipped square bands.
 
 Runtime contract: Drawing.new Square/Text, TextBounds, Remove, screen pixel
-coordinates, Transparency 1 = opaque, Font 2 = system, ZIndex support;
+coordinates, Transparency 0 = opaque / 1 = invisible, Font 2, ZIndex support;
 Roblox client services and access to create an invisible CoreGui TextBox.
 Drawing is a runtime extension, not a stock Roblox Studio API.
