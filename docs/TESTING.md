@@ -3,7 +3,7 @@
 Verified locally on 2026-10-07:
 
 - All six source modules and the bundled release parse under native Luau 0.741.
-- 28 interaction groups pass under native Luau and Lupa 2.8 (Lua 5.5).
+- 33 interaction groups pass under native Luau and Lupa 2.8 (Lua 5.5).
 - The complete example executes, reruns, and cleans up under both mock runtimes.
 - The bundle reproduces exactly from source with `scripts/build.py --check`.
 - Drawing-only layout was visually reviewed using mock-rendered previews.
@@ -23,7 +23,8 @@ The mocks exercise the actual release, not a separate implementation. Coverage:
   idle primitive reuse, centralized connections, callback errors, reentrant
   destroy, failed initialization cleanup, and fresh reload.
 
-This environment does not provide a running Real Executor/Roblox client.
+Real Executor and Roblox are running, but the computer-use helper fails to
+initialize, so live window interaction cannot be verified automatically.
 The stated target is Real Executor (Project Real) 2.7.4 with standard Drawing
 support. The simulations cannot certify native focus/clipboard behavior,
 actual font metrics, transparency, display scaling, or that executor's
@@ -55,4 +56,10 @@ Before treating a particular executor build as certified, run
     hidden GUI objects, or Drawing objects should remain from the old instance.
 
 The library does not call `cleardrawcache`; cleanup is restricted to its own
-Drawing objects. It uses no executor-specific rendering setters.
+Drawing objects. Standard setrenderproperty/getrenderproperty helpers are
+used when available, with direct-property fallback for other Drawing backends.
+
+The v1.0.1 regression cases additionally cover synchronous first paint without
+any engine frame delivery, opaque render-property handles, property ordering,
+missing/recovered RenderStepped delivery, watchdog cancellation, synchronous
+startup failure cleanup, and non-spamming asynchronous error reporting.

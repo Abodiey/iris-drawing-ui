@@ -12,7 +12,7 @@ interactions = (root / 'tests/Interactions.lua').read_text(encoding='utf-8-sig')
 example = (root / 'examples/Example.lua').read_text(encoding='utf-8-sig')
 example_setup = '''
 function game:HttpGet(url)
-    assert(url == 'https://raw.githubusercontent.com/Abodiey/iris-drawing-ui/main/dist/Iris.lua')
+    assert(url == 'https://raw.githubusercontent.com/Abodiey/iris-drawing-ui/main/dist/Iris.lua?v=1.0.1')
     return Bundle
 end
 '''

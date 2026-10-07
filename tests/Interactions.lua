@@ -287,6 +287,116 @@ test('partial initialization failure cleans allocated resources',function()
     item:CreateWindow({Name='Recovered'}); Mock.tick(10); item:Destroy()
     equal(Mock.liveConnections(),prior)
 end)
+test('window paints before any RenderStepped delivery',function()
+    local item=NewUI(Bundle)
+    item:CreateWindow({Name='Immediate'})
+    local renderer=item._runtime.renderer
+    assert(renderer.used.Square>0,'No startup shapes were painted')
+    assert(renderer.used.Text>0,'No startup title was painted')
+    assert(item._runtime.alpha>0)
+    item:Destroy()
+end)
+test('render-property backend supports opaque executor objects and visibility-last',function()
+    local oldDrawing,oldSet,oldGet=Drawing,setrenderproperty,getrenderproperty
+    local states={}
+    Drawing={new=function(kind)
+        local object={}
+        local state={Kind=kind,Visible=false,Text='',Size=15}
+        states[object]=state
+        function object:Remove() assert(not state.removed); state.removed=true end
+        setmetatable(object,{
+            __newindex=function() error('Opaque handles require setrenderproperty') end,
+            __index=function() error('Opaque handles require getrenderproperty') end,
+        })
+        return object
+    end}
+    setrenderproperty=function(object,property,value)
+        local state=assert(states[object])
+        if property=='Visible' and value then
+            assert(typeof(state.Position)=='Vector2','Visibility set before position')
+            if state.Kind=='Square' then assert(typeof(state.Size)=='Vector2' and state.Size.X>0 and state.Size.Y>0,'Visibility set before valid geometry') end
+        end
+        state[property]=value
+    end
+    getrenderproperty=function(object,property)
+        local state=assert(states[object])
+        if property=='TextBounds' then return Vector2.new(utf8.len(state.Text)*state.Size*.53,state.Size+1) end
+        return state[property]
+    end
+    local item=NewUI(Bundle)
+    item:CreateWindow({Name='Backend'}):AddSection('Test'):AddToggle({Name='Toggle'})
+    Mock.tick(40)
+    local visible=0
+    for _,state in pairs(states) do if state.Visible and not state.removed then visible=visible+1 end end
+    assert(visible>0)
+    item:Destroy()
+    for _,state in pairs(states) do assert(state.removed,'Backend object leaked') end
+    Drawing,setrenderproperty,getrenderproperty=oldDrawing,oldSet,oldGet
+end)
+test('stalled render signal has one cancellable task fallback and resumes cleanly',function()
+    local previousTask=task
+    local scheduled={}
+    task={}
+    function task.wait(seconds) return coroutine.yield(seconds) end
+    function task.spawn(fn)
+        local co=coroutine.create(fn)
+        local ok,delay=coroutine.resume(co); assert(ok,delay)
+        scheduled[co]={wake=Mock.time+delay,cancelled=false}
+        return co
+    end
+    function task.cancel(co) scheduled[co].cancelled=true end
+    local function advance(seconds)
+        local untilTime=Mock.time+seconds
+        while Mock.time<untilTime do
+            Mock.time=math.min(untilTime,Mock.time+1/120)
+            for co,entry in pairs(scheduled) do
+                if not entry.cancelled and Mock.time>=entry.wake then
+                    local ok,delay=coroutine.resume(co); assert(ok,delay)
+                    if coroutine.status(co)=='dead' then entry.cancelled=true
+                    else entry.wake=Mock.time+delay end
+                end
+            end
+        end
+    end
+    local item=NewUI(Bundle)
+    item:CreateWindow({Name='Fallback'}):AddSection('Test'):AddToggle({Name='Toggle'})
+    local runtime=item._runtime
+    assert(runtime.watchdog)
+    local frames=0; local step=runtime.Step
+    runtime.Step=function(self,dt) frames=frames+1; return step(self,dt) end
+    advance(.8) -- No RenderStepped events.
+    assert(frames>1 and runtime.alpha>.99 and runtime.renderer.used.Text>1)
+    Mock.tick(1) -- Signal delivery recovers.
+    local before=frames
+    advance(.1)
+    equal(frames,before,'Fallback must not also render after signal recovery')
+    local monitor=runtime.watchdog
+    item:Destroy(); assert(scheduled[monitor].cancelled)
+    task=previousTask
+end)
+test('startup Drawing failures throw synchronously and clean up',function()
+    local create=Drawing.new
+    Drawing.new=function(kind) if kind=='Square' then error('Square backend unavailable') end; return create(kind) end
+    local prior=Mock.liveConnections()
+    local item=NewUI(Bundle)
+    local ok,message=pcall(function() item:CreateWindow({}) end)
+    assert(not ok and tostring(message):find('first frame failed',1,true))
+    equal(Mock.liveConnections(),prior)
+    assert(not item._runtime and not item._window)
+    Drawing.new=create
+    item:CreateWindow({Name='Recovered'}); item:Destroy()
+end)
+test('asynchronous frame failures are explicit and do not spam',function()
+    local item=NewUI(Bundle); item:CreateWindow({})
+    local runtime=item._runtime; local step=runtime.Step
+    local warnings=#Mock.warnings
+    runtime.Step=function() error('expected render failure') end
+    Mock.tick(2); equal(#Mock.warnings,warnings+1)
+    assert(runtime.frameError:find('expected render failure',1,true))
+    assert(Mock.warnings[#Mock.warnings]:find('Iris Drawing render',1,true))
+    runtime.Step=step; Mock.tick(1); assert(not runtime.frameError)
+    item:Destroy()
+end)
 test('Destroy idempotent cleanup and fresh reload',function()
     ui:Destroy(); ui:Destroy(); equal(Mock.liveConnections(),0); equal(Mock.visibleDrawings(),0)
     for _,d in ipairs(Mock.drawings) do assert(d.Removed,'Leaked drawing') end

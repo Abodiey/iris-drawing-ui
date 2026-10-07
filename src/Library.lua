@@ -1,7 +1,7 @@
 local Util=require('Internal.Util')
 local Runtime=require('Internal.Runtime')
 local Controls=require('Controls.Model')
-local UI={Flags={},_flags={},_controls={},_destroyed=false,Version='1.0.0'}
+local UI={Flags={},_flags={},_controls={},_destroyed=false,Version='1.0.1'}
 local Window={}; Window.__index=Window
 local Section={}; Section.__index=Section
 local function options(opts,allowed)
@@ -28,7 +28,15 @@ function UI:CreateWindow(opts)
     local rt=self:_Runtime(); local view=rt:Viewport()
     position=position or Vector2.new(math.max(0,(view.X-size.X)/2),math.max(0,(view.Y-size.Y)/2))
     local w=setmetatable({UI=self,Name=name,RequestedSize=size,Size=size,Position=position,Visible=true,Minimized=false,Sections={},Scroll=0,MaxScroll=0},Window)
-    self._toggleKey=toggle; self._window=w; rt.window=w; rt:ClampWindow(); rt:Dirty(); return w
+    self._toggleKey=toggle; self._window=w; rt.window=w; rt:ClampWindow()
+    -- Paint during the caller's execution, before any deferred engine callback.
+    rt.alpha=.35; rt.height=math.min(160,w.Size.Y)
+    local ok,message=pcall(rt.Draw,rt)
+    if not ok then
+        rt:Destroy(); self._runtime=nil; self._window=nil
+        error('Iris Drawing first frame failed: '..tostring(message))
+    end
+    rt:Dirty(); return w
 end
 function Window:AddSection(name)
     Util.live(self.UI)

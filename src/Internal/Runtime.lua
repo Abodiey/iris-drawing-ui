@@ -31,11 +31,44 @@ function Runtime.new(ui)
         self:Connect(self.input.InputChanged,function(input) self:Changed(input) end)
         self:Connect(self.input.InputEnded,function(input) self:Ended(input) end)
         self:Connect(self.input.WindowFocusReleased,function() self:CancelInteraction(true) end)
-        self:Connect(self.renderService.RenderStepped,function(dt) self:Step(dt) end)
+        self.lastRenderSignal=os.clock()
+        self.lastUpdate=self.lastRenderSignal
+        self:Connect(self.renderService.RenderStepped,function(dt)
+            self.lastRenderSignal=os.clock()
+            self:Frame(dt)
+        end)
+        self:StartWatchdog()
         self.pointer=self.input:GetMouseLocation()
     end)
     if not ok then self:Destroy(); error('Iris Drawing initialization failed: '..tostring(message)) end
     return self
+end
+function Runtime:Frame(dt)
+    if self.ui._destroyed then return end
+    if type(dt)~='number' or dt~=dt or dt<=0 then dt=1/60 end
+    self.lastUpdate=os.clock()
+    local ok,message=pcall(self.Step,self,dt)
+    if not ok then
+        self:Dirty()
+        message=tostring(message)
+        if self.frameError~=message then warn('[Iris Drawing render] '..message) end
+        self.frameError=message
+    else self.frameError=nil end
+    return ok,message
+end
+function Runtime:StartWatchdog()
+    if not task or type(task.spawn)~='function' or type(task.wait)~='function' then return end
+    -- One monitor, not a second active render loop: only step when the signal stalls.
+    self.watchdog=task.spawn(function()
+        local fallback=false
+        while not self.ui._destroyed do
+            task.wait(fallback and 1/60 or .25)
+            if self.ui._destroyed then return end
+            local now=os.clock()
+            fallback=now-self.lastRenderSignal>=.25
+            if fallback then self:Frame(now-self.lastUpdate) end
+        end
+    end)
 end
 function Runtime:Connect(signal,fn) table.insert(self.connections,signal:Connect(fn)) end
 function Runtime:Dirty() self.dirty=true end
@@ -412,6 +445,10 @@ function Runtime:Notify(opts)
     self:Dirty()
 end
 function Runtime:Destroy()
+    if self.watchdog and task and type(task.cancel)=='function' and self.watchdog~=coroutine.running() then
+        pcall(task.cancel,self.watchdog)
+    end
+    self.watchdog=nil
     self.edit=nil; self.capture=nil; self.drag=nil; self.popup=nil
     for _,connection in ipairs(self.connections) do connection:Disconnect() end
     self.connections={}

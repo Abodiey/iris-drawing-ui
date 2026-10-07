@@ -21,6 +21,10 @@ Value controls: GetValue, SetValue. Label: SetText.
 Dropdowns: SetOptions(options, silent).
 
 One retained primitive pool and centralized input/render connections.
+CreateWindow paints synchronously. One cancellable watchdog supplies frames
+only while RenderStepped delivery has stalled. Render errors are reported.
+Prefer available setrenderproperty/getrenderproperty helpers; otherwise use
+standard Drawing object properties. Set geometry before enabling visibility.
 No redraw on idle frames. Popups close on main scrolling, dragging, resizing,
 and hiding. Rectangles clip geometrically. Text draws only when full bounds
 fit and is truncated horizontally. Rounded shapes use clipped square bands.

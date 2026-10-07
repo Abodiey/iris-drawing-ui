@@ -9,7 +9,7 @@ There is no gameplay code and no dependency on JJS or any other project.
 
 ```lua
 local UI = loadstring(game:HttpGet(
-    'https://raw.githubusercontent.com/Abodiey/iris-drawing-ui/main/dist/Iris.lua'
+    'https://raw.githubusercontent.com/Abodiey/iris-drawing-ui/main/dist/Iris.lua?v=1.0.1'
 ))()
 local Window = UI:CreateWindow({Name = 'Example'})
 local Section = Window:AddSection('General')
@@ -193,8 +193,15 @@ python tests/run.py
 python tests/run.py --luau /path/to/luau
 ```
 
+The first window paints synchronously so startup does not depend on a deferred
+engine callback. Render failures report an explicit Iris Drawing error. When
+`setrenderproperty`/`getrenderproperty` are present, the renderer uses them;
+otherwise it uses ordinary object properties. Geometry is set before visibility.
+
 There is one RenderStepped connection and centralized input connections, no
-per-control listeners. Idle frames do not redraw. Drawing objects are pooled
+per-control listeners. One cancellable task monitors frame delivery at 4 Hz;
+it only drives updates at 60 Hz while RenderStepped has stalled, then yields
+back to the engine signal. Idle frames do not redraw. Drawing objects are pooled
 and reused. Popup lists virtualize visible rows. Clipping is geometric for
 shapes; text is horizontally shortened and hidden if its full vertical bounds
 cross the clip edge, since Drawing provides no container clipping. Rounded
