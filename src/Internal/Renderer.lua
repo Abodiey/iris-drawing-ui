@@ -4,9 +4,7 @@ Renderer.__index = Renderer
 function Renderer.new()
     assert(Drawing and type(Drawing.new)=='function', 'Iris Drawing requires Drawing.new')
     local self = setmetatable({pools={Square={},Text={}}, used={Square=0,Text=0},
-        create=Drawing.new,
-        setProperty=type(setrenderproperty)=='function' and setrenderproperty or nil,
-        getProperty=type(getrenderproperty)=='function' and getrenderproperty or nil}, Renderer)
+        create=Drawing.new}, Renderer)
     local ok, err = pcall(function()
         self.measure = self.create('Text')
         self:Set(self.measure,'Visible',false)
@@ -17,11 +15,9 @@ function Renderer.new()
     return self
 end
 function Renderer:Set(object,property,value)
-    if self.setProperty then self.setProperty(object,property,value)
-    else object[property]=value end
+    object[property]=value
 end
 function Renderer:Get(object,property)
-    if self.getProperty then return self.getProperty(object,property) end
     return object[property]
 end
 function Renderer:Bounds(text,size)
@@ -56,8 +52,8 @@ function Renderer:Rect(r, color, clip, z, opacity)
     self:Set(d,'Position',Vector2.new(visible.x,visible.y))
     self:Set(d,'Size',Vector2.new(visible.w,visible.h))
     self:Set(d,'Color',color)
-    -- Internal alpha is opacity; sUNC Drawing uses 0=opaque, 1=transparent.
-    self:Set(d,'Transparency',1-self.alpha*(opacity or 1))
+    -- Synapse Drawing Transparency is opacity: 1=opaque, 0=invisible.
+    self:Set(d,'Transparency',self.alpha*(opacity or 1))
     self:Set(d,'Visible',true)
 end
 function Renderer:Round(r, radius, color, clip, z, opacity)
@@ -98,7 +94,7 @@ function Renderer:Text(text, x, y, color, width, clip, z, size)
     local d=self:Acquire('Text',z)
     self:Set(d,'Position',Vector2.new(x,y)); self:Set(d,'Size',size)
     self:Set(d,'Text',text); self:Set(d,'Color',color)
-    self:Set(d,'Transparency',1-self.alpha); self:Set(d,'Visible',true)
+    self:Set(d,'Transparency',self.alpha); self:Set(d,'Visible',true)
 end
 function Renderer:Finish()
     for kind,pool in pairs(self.pools) do

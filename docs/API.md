@@ -23,13 +23,12 @@ Dropdowns: SetOptions(options, silent).
 One retained primitive pool and centralized input/render connections.
 CreateWindow paints synchronously. One cancellable watchdog supplies frames
 only while RenderStepped delivery has stalled. Render errors are reported.
-Prefer available setrenderproperty/getrenderproperty helpers; otherwise use
-standard Drawing object properties. Set geometry before enabling visibility.
+Use standard Drawing object properties directly, following the Synapse API. Set geometry before enabling visibility.
 No redraw on idle frames. Popups close on main scrolling, dragging, resizing,
 and hiding. Rectangles clip geometrically. Text draws only when full bounds
 fit and is truncated horizontally. Rounded shapes use clipped square bands.
 
 Runtime contract: Drawing.new Square/Text, TextBounds, Remove, screen pixel
-coordinates, Transparency 0 = opaque / 1 = invisible, Font 2, ZIndex support;
+coordinates, Transparency 1 = opaque / 0 = invisible, Font 2, ZIndex support;
 Roblox client services and access to create an invisible CoreGui TextBox.
 Drawing is a runtime extension, not a stock Roblox Studio API.

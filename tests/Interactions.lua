@@ -296,7 +296,7 @@ test('window paints before any RenderStepped delivery',function()
     assert(item._runtime.alpha>0)
     item:Destroy()
 end)
-test('render-property backend supports opaque executor objects and visibility-last',function()
+test('direct Drawing properties and visibility-last work with unrelated helpers present',function()
     local oldDrawing,oldSet,oldGet=Drawing,setrenderproperty,getrenderproperty
     local states={}
     Drawing={new=function(kind)
@@ -305,29 +305,27 @@ test('render-property backend supports opaque executor objects and visibility-la
         states[object]=state
         function object:Remove() assert(not state.removed); state.removed=true end
         setmetatable(object,{
-            __newindex=function() error('Opaque handles require setrenderproperty') end,
-            __index=function() error('Opaque handles require getrenderproperty') end,
+            __newindex=function(_,property,value)
+                if property=='Visible' and value then
+                    assert(typeof(state.Position)=='Vector2','Visibility set before position')
+                    if kind=='Square' then assert(typeof(state.Size)=='Vector2' and state.Size.X>0 and state.Size.Y>0,'Visibility set before valid geometry') end
+                end
+                state[property]=value
+            end,
+            __index=function(_,property)
+                if property=='TextBounds' then return Vector2.new(utf8.len(state.Text)*state.Size*.53,state.Size+1) end
+                return state[property]
+            end,
         })
         return object
     end}
-    setrenderproperty=function(object,property,value)
-        local state=assert(states[object])
-        if property=='Visible' and value then
-            assert(typeof(state.Position)=='Vector2','Visibility set before position')
-            if state.Kind=='Square' then assert(typeof(state.Size)=='Vector2' and state.Size.X>0 and state.Size.Y>0,'Visibility set before valid geometry') end
-        end
-        state[property]=value
-    end
-    getrenderproperty=function(object,property)
-        local state=assert(states[object])
-        if property=='TextBounds' then return Vector2.new(utf8.len(state.Text)*state.Size*.53,state.Size+1) end
-        return state[property]
-    end
+    setrenderproperty=function() error('Unrelated helper must not be called') end
+    getrenderproperty=function() error('Unrelated helper must not be called') end
     local item=NewUI(Bundle)
     item:CreateWindow({Name='Backend'}):AddSection('Test'):AddToggle({Name='Toggle'})
     Mock.tick(40)
     local visible=0
-    for _,state in pairs(states) do if state.Visible and not state.removed then visible=visible+1 end end
+    for _,state in pairs(states) do if state.Visible and not state.removed and state.Transparency>0 then visible=visible+1 end end
     assert(visible>0)
     item:Destroy()
     for _,state in pairs(states) do assert(state.removed,'Backend object leaked') end
@@ -397,7 +395,7 @@ test('asynchronous frame failures are explicit and do not spam',function()
     runtime.Step=step; Mock.tick(1); assert(not runtime.frameError)
     item:Destroy()
 end)
-test('settled window text and controls remain opaque under the sUNC contract',function()
+test('settled window text and controls remain opaque under the Synapse Drawing contract',function()
     window:SetVisible(true); window:SetMinimized(false); window.Scroll=0; rt:Dirty(); Mock.tick(60)
     local title,toggleText,background
     for _,d in ipairs(Mock.drawings) do
@@ -407,11 +405,11 @@ test('settled window text and controls remain opaque under the sUNC contract',fu
             if d._kind=='Square' and d.ZIndex==2 then background=d end
         end
     end
-    assert(title and title.Transparency==0,'Settled title is invisible on sUNC Drawing')
-    assert(toggleText and toggleText.Transparency==0,'Settled control text is invisible on sUNC Drawing')
-    assert(background and math.abs(background.Transparency-.03)<.00001,'Background opacity was inverted')
+    assert(title and title.Transparency==1,'Settled title is invisible on Synapse Drawing')
+    assert(toggleText and toggleText.Transparency==1,'Settled control text is invisible on Synapse Drawing')
+    assert(background and math.abs(background.Transparency-.97)<.00001,'Background opacity was inverted')
 end)
-test('sUNC hide animation increases transparency instead of making pixels opaque',function()
+test('Synapse hide animation decreases Drawing opacity',function()
     window:SetVisible(false); Mock.tick(1)
     local title
     for _,d in ipairs(Mock.drawings) do if not d.Removed and d.Visible and d._kind=='Text' and d.Text==window.Name then title=d end end
@@ -424,7 +422,7 @@ test('notification text stays visible after its fade-in completes',function()
     Mock.tick(60)
     local title
     for _,d in ipairs(Mock.drawings) do if not d.Removed and d.Visible and d._kind=='Text' and d.Text=='Opacity regression' then title=d end end
-    assert(title and title.Transparency<.001,'Notification became transparent after fading in')
+    assert(title and title.Transparency>.999,'Notification became transparent after fading in')
     Mock.tick(300); equal(#rt.notifications,0)
 end)
 test('Destroy idempotent cleanup and fresh reload',function()

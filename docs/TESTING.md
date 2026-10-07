@@ -56,20 +56,17 @@ Before treating a particular executor build as certified, run
     hidden GUI objects, or Drawing objects should remain from the old instance.
 
 The library does not call `cleardrawcache`; cleanup is restricted to its own
-Drawing objects. Standard setrenderproperty/getrenderproperty helpers are
-used when available, with direct-property fallback for other Drawing backends.
+Drawing objects. The renderer uses direct object properties, including when
+unrelated render-property helper functions exist in the script environment.
 
-The v1.0.1 regression cases additionally cover synchronous first paint without
-any engine frame delivery, opaque render-property handles, property ordering,
-missing/recovered RenderStepped delivery, watchdog cancellation, synchronous
-startup failure cleanup, and non-spamming asynchronous error reporting.
+Regressions cover synchronous first paint without engine frame delivery,
+property ordering, missing/recovered RenderStepped delivery, watchdog
+cancellation, startup failure cleanup, and asynchronous error reporting.
 
-Version 1.0.2 fixes a reproduced visibility failure: the old renderer wrote
-opacity directly into Drawing.Transparency, making settled text completely
-transparent under the sUNC contract. The new settled-window regression fails
-on v1.0.1 with "Settled title is invisible on sUNC Drawing" and passes after
-converting opacity to 1 - opacity. Separate tests check hide-direction and
-notification visibility. Mock.visibleDrawings now excludes fully transparent
-objects, instead of treating Visible=true as proof of visible pixels.
+Version 1.0.3 follows the requested Synapse Drawing contract: Transparency is
+opacity (1 = opaque, 0 = invisible). Settled text must have Transparency = 1,
+the window background = 0.97, and hiding must decrease opacity. Notification
+text must remain opaque after fade-in. The mock visibility count follows this
+same contract. These checks do not establish live executor rendering.
 
-Contract reference: https://docs.sunc.io/Drawing/#shared-properties
+Contract reference: https://synapsexdocs.github.io/libraries/drawing/

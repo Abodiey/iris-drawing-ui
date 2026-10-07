@@ -9,7 +9,7 @@ There is no gameplay code and no dependency on JJS or any other project.
 
 ```lua
 local UI = loadstring(game:HttpGet(
-    'https://raw.githubusercontent.com/Abodiey/iris-drawing-ui/main/dist/Iris.lua?v=1.0.2'
+    'https://raw.githubusercontent.com/Abodiey/iris-drawing-ui/main/dist/Iris.lua?v=1.0.3'
 ))()
 local Window = UI:CreateWindow({Name = 'Example'})
 local Section = Window:AddSection('General')
@@ -17,15 +17,14 @@ local Section = Window:AddSection('General')
 
 `dist/Iris.lua` bundles all modules; loading it performs no further HTTP requests.
 Use a commit SHA in place of `main` to pin a specific revision.
-Version 1.0.2 fixes the reversed Drawing transparency convention that made
-settled controls invisible: internal opacity is converted to `1 - opacity`
-at the renderer boundary. Legacy opacity-style Drawing backends are not the
-default contract. See the [sUNC specification](https://docs.sunc.io/Drawing/#shared-properties). The complete
+Version 1.0.3 targets the [Synapse Drawing contract](https://synapsexdocs.github.io/libraries/drawing/):
+`Transparency = 1` is opaque and `0` is invisible. Drawing properties are assigned
+directly. This corrects the invisible settled interface in v1.0.2. The complete
 [example](examples/Example.lua) demonstrates every control and config handling.
 
 **Runtime:** PC keyboard/mouse, Roblox client services, CoreGui input access,
-and a sUNC Drawing API supporting Square/Text, `TextBounds`, `ZIndex`,
-`Font = 2`, `Remove()`, and `Transparency` where 0 is opaque and 1 is fully transparent. Coordinates are
+and a Synapse-compatible Drawing API supporting Square/Text, `TextBounds`, `ZIndex`,
+`Font = 2`, `Remove()`, and `Transparency` where 1 is opaque and 0 is fully transparent. Coordinates are
 screen pixels, matching `UserInputService:GetMouseLocation()`. Your stated
 target is Real Executor (Project Real) 2.7.4. Native Luau and mock interaction
 tests pass; live Real 2.7.4 rendering and native focus have not been verified
@@ -198,9 +197,8 @@ python tests/run.py --luau /path/to/luau
 ```
 
 The first window paints synchronously so startup does not depend on a deferred
-engine callback. Render failures report an explicit Iris Drawing error. When
-`setrenderproperty`/`getrenderproperty` are present, the renderer uses them;
-otherwise it uses ordinary object properties. Geometry is set before visibility.
+engine callback. Render failures report an explicit Iris Drawing error. The renderer uses direct
+Drawing object properties as documented by Synapse. Geometry is set before visibility.
 
 There is one RenderStepped connection and centralized input connections, no
 per-control listeners. One cancellable task monitors frame delivery at 4 Hz;
