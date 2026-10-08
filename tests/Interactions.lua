@@ -8,7 +8,13 @@ local function fails(fn) assert(not pcall(fn),'Expected validation failure') end
 local function equal(a,b) assert(a==b,tostring(a)..' ~= '..tostring(b)) end
 local function hit(rt,c,role)
     if rt.dirty then rt:Draw() end
-    for _,h in ipairs(rt.hits) do if h.owner==c and h.role==role then return h end end
+    for _,h in ipairs(rt.hits) do
+        if h.owner==c and h.role==role then
+            local p,s=h.frame.AbsolutePosition,h.frame.AbsoluteSize
+            h.rect={x=p.X,y=p.Y,w=s.X,h=s.Y}
+            return h
+        end
+    end
     error('Missing hit '..role)
 end
 local function clickHit(rt,c,role)
@@ -197,7 +203,7 @@ test('notification cap, stacking and expiry',function()
     fails(function() ui:Notify({Duration=0}) end)
 end)
 test('single centralized connections and idle primitive reuse',function()
-    local count=Mock.liveConnections(); equal(count,9)
+    local count=Mock.liveConnections(); equal(count,10)
     Mock.tick(60); local objects=#Mock.drawings
     Mock.tick(100); equal(#Mock.drawings,objects)
     for _=1,10 do rt:Dirty(); Mock.tick(1) end
@@ -425,24 +431,24 @@ test('notification text stays visible after its fade-in completes',function()
     assert(title and title.Transparency>.999,'Notification became transparent after fading in')
     Mock.tick(300); equal(#rt.notifications,0)
 end)
-test('mouse sampling uses UIS and screen hitboxes follow GUI viewport geometry',function()
+test('raw UIS hitboxes align with Drawing under changing GUI origins',function()
     window.Scroll=0; rt:Dirty(); Mock.tick(60)
-    local row=hit(rt,toggle,'toggle').rect
-    local record
-    for _,candidate in ipairs(rt.hits) do if candidate.owner==toggle and candidate.role=='toggle' then record=candidate end end
-    assert(record and record.frame and record.frame.AbsolutePosition and record.frame.AbsoluteSize)
-    equal(record.frame.AbsolutePosition.X,row.x); equal(record.frame.AbsolutePosition.Y,row.y)
-    equal(record.frame.AbsoluteSize.X,row.w); equal(record.frame.AbsoluteSize.Y,row.h)
-    local value=toggle.Value
-    -- The GUI engine translates the absolute frame bounds with its safe-area origin.
-    Mock.screenInset=Vector2.new(0,24)
-    local screenY=row.y+20+Mock.screenInset.Y
-    Mock.click(row.x+20,screenY)
-    equal(record.frame.AbsolutePosition.Y,row.y+Mock.screenInset.Y)
-    equal(toggle.Value,not value)
-    equal(rt.pointer.X,row.x+20); equal(rt.pointer.Y,screenY)
-    -- The engine's updated origin is reflected without changing mouse math.
-    Mock.screenInset=Vector2.new(0,0)
+    for _,origin in ipairs({Vector2.new(0,-58),Vector2.new(0,24),Vector2.new(12,-31),Vector2.new(0,0)}) do
+        Mock.guiOrigin=origin
+        rt.gui:GetPropertyChangedSignal('AbsolutePosition'):Fire()
+        assert(rt.dirty,'GUI origin changes must invalidate layout')
+        Mock.tick(1)
+        local record=hit(rt,toggle,'toggle')
+        local row=toggle._row
+        equal(record.frame.AbsolutePosition.X,row.x)
+        equal(record.frame.AbsolutePosition.Y,row.y)
+        equal(record.frame.AbsoluteSize.X,row.w)
+        equal(record.frame.AbsoluteSize.Y,row.h)
+        local value=toggle.Value
+        Mock.click(row.x+20,row.y+20)
+        equal(toggle.Value,not value)
+        equal(rt.pointer.X,row.x+20); equal(rt.pointer.Y,row.y+20)
+    end
 end)
 
 test('wheel capture is scoped and unbound independently on destroy',function()
@@ -497,6 +503,6 @@ test('Destroy idempotent cleanup and fresh reload',function()
     assert(next(ui.Flags)==nil and next(ui._flags)==nil and #ui._controls==0)
     fails(function() toggle:SetValue(true) end)
     local fresh=NewUI(Bundle); fresh:CreateWindow({Name='Reload'}):AddSection('A'):AddToggle({Name='Enabled',Flag='enabled'})
-    Mock.tick(40); equal(Mock.liveConnections(),9); fresh:Destroy(); equal(Mock.liveConnections(),0)
+    Mock.tick(40); equal(Mock.liveConnections(),10); fresh:Destroy(); equal(Mock.liveConnections(),0)
 end)
 print(string.format('%d interaction groups passed',passed))

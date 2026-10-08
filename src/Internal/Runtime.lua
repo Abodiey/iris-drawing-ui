@@ -18,6 +18,7 @@ function Runtime.new(ui)
         self.box.MultiLine=false; self.box.Text=''; self.box.Size=UDim2.fromOffset(1,1)
         self.box.Position=UDim2.fromOffset(-10000,-10000); self.box.Parent=self.gui
         self.gui.Parent=game:GetService('CoreGui')
+        self:Connect(self.gui:GetPropertyChangedSignal('AbsolutePosition'),function() self:Dirty() end)
         self:Connect(self.box:GetPropertyChangedSignal('Text'),function()
             if self.edit and not self.syncing then
                 local value=Util.clean(self.box.Text,self.edit.MaxLength)
@@ -191,7 +192,10 @@ function Runtime:Hit(rect,owner,role,clip,data)
         frame.Parent=self.gui
         self.hitFrames[self.hitCount]=frame
     end
-    frame.Position=UDim2.fromOffset(visible.x,visible.y)
+    -- CoreGui can report a nonzero origin even with IgnoreGuiInset enabled.
+    -- Convert Drawing screen coordinates into the GUI's actual local space.
+    local origin=self.hitOrigin
+    frame.Position=UDim2.fromOffset(visible.x-origin.X,visible.y-origin.Y)
     frame.Size=UDim2.fromOffset(visible.w,visible.h)
     frame.Visible=true
     self.hits[self.hitCount]={frame=frame,owner=owner,role=role,data=data}
@@ -258,6 +262,7 @@ function Runtime:ClampWindow()
 end
 function Runtime:Draw()
     self.dirty=false; self.hitCount=0
+    self.hitOrigin=self.gui.AbsolutePosition
     local d,t,w=self.renderer,Views.Theme,self.window
     d:Begin(self.alpha)
     if w and self.alpha>.001 then

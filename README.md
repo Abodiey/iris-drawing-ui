@@ -9,7 +9,7 @@ There is no gameplay code and no dependency on JJS or any other project.
 
 ```lua
 local UI = loadstring(game:HttpGet(
-    'https://raw.githubusercontent.com/Abodiey/iris-drawing-ui/main/dist/Iris.lua?v=1.0.11'
+    'https://raw.githubusercontent.com/Abodiey/iris-drawing-ui/main/dist/Iris.lua?v=1.0.12'
 ))()
 local Window = UI:CreateWindow({Name = 'Example'})
 local Section = Window:AddSection('General')
@@ -17,8 +17,9 @@ local Section = Window:AddSection('General')
 
 `dist/Iris.lua` bundles all modules; loading it performs no further HTTP requests.
 Use a commit SHA in place of `main` to pin a specific revision.
-Version 1.0.11 aligns invisible hit regions with Drawing coordinates while using
-raw `UserInputService:GetMouseLocation()` and absolute GUI hitbox bounds.
+Version 1.0.12 converts Drawing coordinates through the invisible ScreenGui’s
+actual `AbsolutePosition`, including when its origin changes. Input uses raw
+`UserInputService:GetMouseLocation()` and absolute GUI hitbox bounds.
 Version 1.0.10 adds the light appearance, smooth native circle knobs, and scoped
 wheel capture so scrolling over the interface does not also zoom the camera.
 The complete [example](examples/Example.lua) demonstrates every control and config handling.
@@ -28,13 +29,14 @@ and a [Synapse-compatible Drawing API](https://synapsexdocs.github.io/libraries/
 supporting Square/Text/Circle, `TextBounds`, `ZIndex`, `Font = 2`, `NumSides`,
 `Remove()`, and `Transparency` where 1 is opaque and 0 is fully transparent.
 Pointer positions come only from `UserInputService:GetMouseLocation()`.
-Widget hit regions are invisible Frames under a ScreenGui using the normal
-safe-area origin. Hit tests compare mouse screen coordinates to each frame’s
-`AbsolutePosition` and `AbsoluteSize`, which lets Roblox apply the viewport offset.
+Widget hit regions are invisible Frames under a ScreenGui. Their local positions
+subtract the ScreenGui's actual `AbsolutePosition` so their absolute screen bounds
+match the Drawing geometry. Origin changes invalidate layout automatically.
+Hit tests use each frame's `AbsolutePosition` and `AbsoluteSize`.
 All visible pixels remain Drawing objects. The hidden TextBox only handles input.
 Madium is the current target; native Luau mock tests cover interactions and cleanup.
-Live Madium focus, camera input consumption, and coordinate alignment still need
-verification in the executor. This is not a stock Roblox Studio UI module.
+Live Madium hitbox coordinates have been checked against Drawing geometry.
+Native focus and camera input consumption still need verification in the executor. This is not a stock Roblox Studio UI module.
 
 ## Window and sections
 
@@ -102,7 +104,7 @@ Section:AddSeparator({Name = 'Advanced'})  -- Name may be omitted for a plain li
 | Slider | Finite number. Required `Min` and `Max` with `Max > Min`; positive `Step` defaults to 1. Values clamp and snap relative to Min. Default Min. |
 | Dropdown | Exact option string. Unique nonempty strings in a dense `Options` array, up to 500. Defaults to the first option; an empty list uses `''`. |
 | MultiDropdown | Array of option strings, default `{}`. Rejects unknown/duplicate selections and stores them in Options order. |
-| Textbox | Single-line UTF-8 string, default `''`. MaxLength is 1â€“4096 codepoints, default 256. Control characters become spaces. Enter, outside click, scrolling, hiding, or native focus loss commits; Escape cancels. Mouse and keyboard selection are supported. |
+| Textbox | Single-line UTF-8 string, default `''`. MaxLength is 1–4096 codepoints, default 256. Control characters become spaces. Enter, outside click, scrolling, hiding, or native focus loss commits; Escape cancels. Mouse and keyboard selection are supported. |
 | Keybind | KeyCode name string or `'None'`, default `'None'`. `OnChanged(keyName)` reports binding changes. `Callback(true/false)` reports press/release, never binding changes. Click to capture; Escape cancels; Backspace/Delete clears. The window ToggleKey is reserved. Typing in any native TextBox suppresses actions. |
 | ColorPicker | Color3, default iOS blue. Callback/GetValue return Color3. The popup uses saturation/value and hue strips; config uses RGB arrays. No alpha channel. |
 | Label | Display only; `SetText(string)`. No Flag, Default, or Callback. |

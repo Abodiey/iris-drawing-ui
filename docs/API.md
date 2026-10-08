@@ -32,3 +32,8 @@ Runtime contract: Drawing.new Square/Text, TextBounds, Remove, screen pixel
 coordinates, Transparency 1 = opaque / 0 = invisible, Font 2, ZIndex support;
 Roblox client services and access to create an invisible CoreGui TextBox.
 Drawing is a runtime extension, not a stock Roblox Studio API.
+
+Pointer sampling uses only UserInputService:GetMouseLocation(). Invisible hitbox
+Frames are positioned relative to the ScreenGui's actual AbsolutePosition so
+absolute bounds match Drawing screen coordinates. GUI origin changes invalidate
+layout; no fixed mouse offsets or inset-query APIs are used.

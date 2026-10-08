@@ -1,6 +1,6 @@
 _G={}
 -- Deterministic Roblox/Drawing model. This does not impersonate a live client.
-Mock={drawings={},instances={},connections={},warnings={},time=0,mouse=nil,screenInset=nil}
+Mock={drawings={},instances={},connections={},warnings={},time=0,mouse=nil}
 local function signal()
     local s={listeners={}}
     function s:Connect(fn)
@@ -16,7 +16,7 @@ local function signal()
 end
 Vector2={new=function(x,y) return setmetatable({X=x,Y=y},{__type='Vector2'}) end}
 Mock.mouse=Vector2.new(0,0)
-Mock.screenInset=Vector2.new(0,0)
+Mock.guiOrigin=Vector2.new(0,0)
 UDim2={fromOffset=function(x,y) return {X=x,Y=y} end}
 local colorMethods={}
 function colorMethods:ToHSV()
@@ -86,10 +86,12 @@ function Instance.new(kind)
         for _,child in ipairs(Mock.instances) do if child.Parent==self and not child.Destroyed then child:Destroy() end end
     end
     setmetatable(o,{__index=function(obj,k)
+        if obj._kind=='ScreenGui' and k=='AbsolutePosition' then return Mock.guiOrigin end
         if obj._kind=='Frame' and (k=='AbsolutePosition' or k=='AbsoluteSize') then
             local key=k=='AbsolutePosition' and 'Position' or 'Size'; local value=obj._props[key] or {X=0,Y=0}
-            if k=='AbsolutePosition' and obj.Parent and obj.Parent.IgnoreGuiInset==false then
-                return Vector2.new(value.X+Mock.screenInset.X,value.Y+Mock.screenInset.Y)
+            if k=='AbsolutePosition' and obj.Parent then
+                local origin=obj.Parent.AbsolutePosition
+                return Vector2.new(value.X+origin.X,value.Y+origin.Y)
             end
             return Vector2.new(value.X,value.Y)
         end
