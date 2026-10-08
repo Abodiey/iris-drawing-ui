@@ -14,12 +14,12 @@ local function fieldBox(rt,c,role,r,clip,focused,base)
     local d=rt.renderer
     local fill=role=='textbox' and Theme.field or surface(rt,c,role,base or Theme.field)
     d:Rect(r,fill,clip,12)
-    d:Border(r,focused and Theme.accent or Theme.Mix(Theme.controlBorder,Theme.borderHover,rt:Visual(c,role)),clip,13,role=='button' and 1 or 2)
+    d:Border(r,focused and Theme.accent or Theme.Mix(Theme.controlBorder,Theme.borderHover,rt:Visual(c,role)),clip,13,focused and 2 or 1)
 end
 function Views.Field(r)
-    local width=math.min(180,math.max(120,r.w*.4))
+    local width=math.min(Theme.metrics.fieldWidth,r.w)
     local height=Theme.metrics.fieldHeight
-    return Util.rect(r.x+r.w-width,r.y+(r.h-height)/2,width,height)
+    return Util.rect(r.x,r.y+Theme.metrics.controlTop,width,height)
 end
 function Views.Control(rt,c,r,clip)
     local d,t=rt.renderer,Theme
@@ -27,7 +27,7 @@ function Views.Control(rt,c,r,clip)
     local kind=c.Kind
     if kind=='Separator' then
         if c.Name~='' then d:Text(c.Name,x,y+5,t.muted,w,clip,12,t.bodySize,t.headingFont) end
-        d:Rect(Util.rect(x,y+28,w,1),t.line,clip,11); return
+        d:Rect(Util.rect(x,y+24,w,1),t.line,clip,11); return
     end
     if kind=='Label' then d:Text(c.Name,x,y+4,t.muted,w,clip,12,t.captionSize); return end
     if kind=='Button' then
@@ -37,11 +37,12 @@ function Views.Control(rt,c,r,clip)
         rt:Hit(button,c,'button',clip); return
     end
     if kind=='Slider' then
+        local width=math.min(w,t.metrics.sliderWidth)
         local value=tostring(c.Value)
-        local valueWidth=math.min(w*.3,d:Width(value,t.bodySize))
-        d:Text(c.Name,x,y+4,t.text,w-valueWidth-t.metrics.columnGap,clip,12)
-        d:Text(value,x+w-valueWidth,y+4,t.muted,valueWidth,clip,12)
-        local track=Util.rect(x+7,y+34,w-14,2)
+        local valueWidth=math.min(width*.3,d:Width(value,t.bodySize))
+        d:Text(c.Name,x,y+4,t.text,width-valueWidth-16,clip,12)
+        d:Text(value,x+width-valueWidth,y+4,t.muted,valueWidth,clip,12)
+        local track=Util.rect(x+7,y+34,width-14,2)
         local ratio=c._visual or (c.Value-c.Min)/(c.Max-c.Min)
         local active=rt.drag and rt.drag.control==c
         local amount=rt:Visual(c,'slider')
@@ -49,13 +50,13 @@ function Views.Control(rt,c,r,clip)
         d:Rect(track,t.line,clip,12)
         d:Rect(Util.rect(track.x,track.y,track.w*ratio,track.h),color,clip,13)
         d:Round(Util.rect(track.x+track.w*ratio-7,track.y-6,14,14),7,color,clip,14)
-        rt:Hit(r,c,'slider',clip,track); return
+        rt:Hit(Util.rect(x,track.y-7,width,16),c,'slider',clip,track); return
     end
     local field=c._anchor or Views.Field(r)
-    d:Text(c.Name,x,y+12,t.text,field.x-x-t.metrics.columnGap,clip,12)
+    d:Text(c.Name,x,y+3,t.text,w,clip,12)
     if kind=='Toggle' then
-        local switch=Util.rect(x+w-40,y+10,40,20)
-        d:Text(c.Value and 'On' or 'Off',switch.x-36,y+12,t.muted,30,clip,12,t.bodySize)
+        local switch=Util.rect(x,y+t.metrics.controlTop+2,40,20)
+        d:Text(c.Value and 'On' or 'Off',switch.x+52,switch.y+2,t.text,40,clip,12,t.bodySize)
         local ratio=c._visual or (c.Value and 1 or 0)
         local amount=rt:Visual(c,'toggle')
         local on=blend(t.accent,t.accentHover,amount)
@@ -63,7 +64,7 @@ function Views.Control(rt,c,r,clip)
         d:Round(switch,10,c.Value and on or blend(t.muted,t.text,amount),clip,12)
         if not c.Value then d:Round(Util.rect(switch.x+2,switch.y+2,36,16),8,t.white,clip,13) end
         d:Round(Util.rect(switch.x+4+20*ratio,switch.y+4,12,12),6,c.Value and t.white or t.muted,clip,14)
-        rt:Hit(r,c,'toggle',clip)
+        rt:Hit(switch,c,'toggle',clip)
     elseif kind=='Dropdown' or kind=='MultiDropdown' then
         local open=rt.popup and rt.popup.control==c
         fieldBox(rt,c,'dropdown',field,clip,open)
@@ -72,23 +73,23 @@ function Views.Control(rt,c,r,clip)
         local cx,cy=field.x+field.w-15,field.y+14
         d:Line(cx-4,cy,cx,cy+4,t.text,clip,14)
         d:Line(cx,cy+4,cx+4,cy,t.text,clip,14)
-        rt:Hit(r,c,'dropdown',clip,field)
+        rt:Hit(field,c,'dropdown',clip,field)
     elseif kind=='Textbox' then
         fieldBox(rt,c,'textbox',field,clip,rt.edit==c)
         if rt.edit==c then rt:DrawEditing(c,field,clip)
         else d:Text(c.Value=='' and c.Placeholder or c.Value,field.x+8,field.y+8,c.Value=='' and t.muted or t.text,field.w-16,clip,14,t.bodySize) end
-        rt:Hit(r,c,'textbox',clip,field)
+        rt:Hit(field,c,'textbox',clip,field)
     elseif kind=='Keybind' then
         fieldBox(rt,c,'keybind',field,clip,rt.capture==c)
         d:Text(rt.capture==c and 'Press a key...' or c.Value,field.x+8,field.y+8,rt.capture==c and t.accent or t.text,field.w-16,clip,14,t.bodySize)
-        rt:Hit(r,c,'keybind',clip)
+        rt:Hit(field,c,'keybind',clip)
     elseif kind=='ColorPicker' then
         fieldBox(rt,c,'color',field,clip,rt.popup and rt.popup.control==c)
         local swatch=Util.rect(field.x+6,field.y+6,20,20)
         d:Rect(swatch,c.Value,clip,14); d:Border(swatch,t.line,clip,15)
         local color=c.Value
         d:Text(string.format('#%02X%02X%02X',math.floor(color.R*255+.5),math.floor(color.G*255+.5),math.floor(color.B*255+.5)),field.x+34,field.y+8,t.text,field.w-42,clip,14,t.bodySize)
-        rt:Hit(r,c,'color',clip,field)
+        rt:Hit(field,c,'color',clip,field)
     end
 end
 function Views.Popup(rt,popup,retiring)
@@ -96,7 +97,7 @@ function Views.Popup(rt,popup,retiring)
     if not popup then return end
     local c=popup.control
     local anchor=c._anchor
-    if not anchor or not Util.contains(c._row,rt.contentClip) then if not retiring then rt:ClosePopup() end; return end
+    if not anchor or not Util.contains(anchor,rt.contentClip) then if not retiring then rt:ClosePopup() end; return end
     local view=rt:Viewport()
     local d,t=rt.renderer,Views.Theme
     local width=c.Kind=='ColorPicker' and 230 or anchor.w

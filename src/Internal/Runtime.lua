@@ -355,7 +355,7 @@ function Runtime:Draw()
             for _,section in ipairs(w.Sections) do
                 local rowWidth=self.contentClip.w-metrics.scrollbarGutter
                 d:Text(section.Name,self.contentClip.x,cy+4,t.text,rowWidth,self.contentClip,10,t.headingSize,t.headingFont)
-                d:Rect(Util.rect(self.contentClip.x,cy+34,rowWidth,1),t.line,self.contentClip,10)
+                d:Rect(Util.rect(self.contentClip.x,cy+31,rowWidth,1),t.line,self.contentClip,10)
                 cy=cy+metrics.sectionHeight
                 for _,c in ipairs(section.Controls) do
                     local row=Util.rect(self.contentClip.x,cy,rowWidth,c.Height)

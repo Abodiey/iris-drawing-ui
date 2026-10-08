@@ -9,7 +9,7 @@ There is no gameplay code and no dependency on JJS or any other project.
 
 ```lua
 local UI = loadstring(game:HttpGet(
-    'https://raw.githubusercontent.com/Abodiey/iris-drawing-ui/main/dist/Iris.lua?v=1.0.16'
+    'https://raw.githubusercontent.com/Abodiey/iris-drawing-ui/main/dist/Iris.lua?v=1.0.17'
 ))()
 local Window = UI:CreateWindow({Name = 'Example'})
 local Section = Window:AddSection('General')
@@ -17,7 +17,7 @@ local Section = Window:AddSection('General')
 
 `dist/Iris.lua` bundles all modules; loading it performs no further HTTP requests.
 Use a commit SHA in place of `main` to pin a specific revision.
-The renderer converts hitbox coordinates through the invisible ScreenGui’s
+The renderer converts hitbox coordinates through the invisible ScreenGuiâ€™s
 actual `AbsolutePosition`, including when its origin changes. Input uses raw
 `UserInputService:GetMouseLocation()` and absolute GUI hitbox bounds.
 Version 1.0.10 adds the light appearance, smooth native circle knobs, and scoped
@@ -40,12 +40,18 @@ Native focus and camera input consumption still need verification in the executo
 
 ## Visual design
 
-Version 1.0.16 uses a compact Windows 10 light layout: square window and field
-corners, neutral thin borders, blue focus and selection, native capsule switches,
-and circular slider thumbs. Sections use 20-pixel headings with a subtle divider;
-body text is 14 pixels and informational labels are 12 pixels. Informational rows
-are 24 pixels tall, interactive rows 40 pixels, fields 32 pixels, and sliders
-56 pixels. Fields share one right edge; buttons size to their text.
+Version 1.0.17 follows Windows 10 Settings placement: labels above left-aligned
+fields and switches, instead of a two-column form. Fields are 240 pixels wide
+(or shrink to the available width) and 32 pixels tall. Setting blocks are 64
+pixels tall, switches 56 pixels, and informational rows 22 pixels. Sliders use
+a restrained 320-pixel width. Section headings remain 20 pixels; body text is
+14 pixels and metadata 12 pixels. Rectangular fields have thin neutral borders
+and a blue focus outline. Toggle state text sits beside its capsule.
+
+Click and hover targets match the visible controls in both X and Y; blank row
+space and labels do not open dropdowns, toggle switches, or capture text/key input.
+Sliders accept initial clicks only on their track/thumb area; dragging still
+continues outside it until release.
 
 Colors, typography, spacing and motion are centralized in
 `src/Internal/Theme.lua`. Segoe UI is selected only if the Drawing backend
@@ -122,7 +128,7 @@ Section:AddSeparator({Name = 'Advanced'})  -- Name may be omitted for a plain li
 | Slider | Finite number. Required `Min` and `Max` with `Max > Min`; positive `Step` defaults to 1. Values clamp and snap relative to Min. Default Min. |
 | Dropdown | Exact option string. Unique nonempty strings in a dense `Options` array, up to 500. Defaults to the first option; an empty list uses `''`. |
 | MultiDropdown | Array of option strings, default `{}`. Rejects unknown/duplicate selections and stores them in Options order. |
-| Textbox | Single-line UTF-8 string, default `''`. MaxLength is 1–4096 codepoints, default 256. Control characters become spaces. Enter, outside click, scrolling, hiding, or native focus loss commits; Escape cancels. Mouse and keyboard selection are supported. |
+| Textbox | Single-line UTF-8 string, default `''`. MaxLength is 1â€“4096 codepoints, default 256. Control characters become spaces. Enter, outside click, scrolling, hiding, or native focus loss commits; Escape cancels. Mouse and keyboard selection are supported. |
 | Keybind | KeyCode name string or `'None'`, default `'None'`. `OnChanged(keyName)` reports binding changes. `Callback(true/false)` reports press/release, never binding changes. Click to capture; Escape cancels; Backspace/Delete clears. The window ToggleKey is reserved. Typing in any native TextBox suppresses actions. |
 | ColorPicker | Color3, default iOS blue. Callback/GetValue return Color3. The popup uses saturation/value and hue strips; config uses RGB arrays. No alpha channel. |
 | Label | Display only; `SetText(string)`. No Flag, Default, or Callback. |
@@ -246,7 +252,7 @@ Rayfield, Linoria, or Apple's assets.
 
 Mouse input uses only raw `UserInputService:GetMouseLocation()`; hit regions keep their unshifted GUI coordinates. The renderer adds a Y translation to every Drawing position using the common-monitor-ratio heuristic: choose the closest candidate `viewportWidth / ratio` at or above the current viewport height (gap under 80 pixels), then subtract the viewport height. If no ratio matches, use the greatest viewport height observed by that renderer. The calculation refreshes on viewport changes; no native cursor replacement, GUI-inset queries, or secondary mouse sources are used.
 
-On the tested 1280×1024 monitor this produces +23 for a 1280×1001 windowed viewport and 0 for fullscreen. This is an inference for the affected Drawing backend, not a measured OS title-bar size. Other monitor ratios, freely resized windows, and backends already using client coordinates can produce incorrect corrections. The fallback requires having observed a taller viewport; it cannot discover an unknown height by itself. X is not adjusted.
+On the tested 1280أ—1024 monitor this produces +23 for a 1280أ—1001 windowed viewport and 0 for fullscreen. This is an inference for the affected Drawing backend, not a measured OS title-bar size. Other monitor ratios, freely resized windows, and backends already using client coordinates can produce incorrect corrections. The fallback requires having observed a taller viewport; it cannot discover an unknown height by itself. X is not adjusted.
 
 ## Windows 10 light appearance
 

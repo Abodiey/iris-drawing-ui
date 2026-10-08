@@ -120,7 +120,8 @@ function Controls.Create(section,kind,opts)
     elseif kind=='ColorPicker' then if default==nil then default=Color3.fromRGB(0,122,255) end end
     if valueKinds[kind] then c.Value=c:Validate(default) end
     local metrics=Theme.metrics
-    c.Height=kind=='Slider' and metrics.sliderHeight or (kind=='Separator' and metrics.separatorHeight or (kind=='Label' and metrics.labelHeight or metrics.rowHeight))
+    local heights={Slider=metrics.sliderHeight,Toggle=metrics.toggleHeight,Button=metrics.buttonHeight,Separator=metrics.separatorHeight,Label=metrics.labelHeight}
+    c.Height=heights[kind] or metrics.rowHeight
     if c.Flag then ui._flags[c.Flag]=c; ui.Flags[c.Flag]=Util.copy(c.Value) end
     table.insert(section.Controls,c); table.insert(ui._controls,c)
     ui._runtime:Dirty()
