@@ -69,7 +69,7 @@ end
 function cas:UnbindAction(name) Mock.actions[name]=nil end
 local guiService={}
 function guiService:GetGuiInset() return Mock.inset,Vector2.new(0,0) end
-local services={GuiService=guiService,UserInputService=uis,ContextActionService=cas,RunService=run,Workspace=workspace,CoreGui=core}
+local services={GuiService=guiService,UserInputService=uis,GuiService=guiService,ContextActionService=cas,RunService=run,Workspace=workspace,CoreGui=core}
 game={GetService=function(_,name) assert(services[name],name); return services[name] end}
 Instance={}
 function Instance.new(kind)

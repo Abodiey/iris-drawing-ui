@@ -84,3 +84,8 @@ Live executor alignment still requires user confirmation.
 Version 1.0.6 removes all GUI inset translation after live user feedback showed
 subtraction was too high and addition was too low. Regression tests verify raw
 mouse coordinates stay unchanged when the GUI inset changes.
+
+Version 1.0.7 applies half the current vertical GUI inset. Regression checks cover
+changing inset values and confirm raw mouse positions map to the centered target.
+This factor is an empirically chosen midpoint from user feedback; verify alignment
+in Madium because inset behavior can vary by executor configuration.
