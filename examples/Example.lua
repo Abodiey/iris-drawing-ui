@@ -3,7 +3,7 @@ local previous = rawget(_G, 'IrisDrawingExample')
 if previous then previous:Destroy() end
 
 local UI = loadstring(game:HttpGet(
-    'https://raw.githubusercontent.com/Abodiey/iris-drawing-ui/main/dist/Iris.lua?v=1.0.15'
+    'https://raw.githubusercontent.com/Abodiey/iris-drawing-ui/main/dist/Iris.lua?v=1.0.16'
 ))()
 _G.IrisDrawingExample = UI
 
@@ -12,7 +12,7 @@ local Window = UI:CreateWindow({
     Size = Vector2.new(480, 560),
     ToggleKey = 'RightShift',
 })
-local General = Window:AddSection('GENERAL')
+local General = Window:AddSection('General')
 local Status = General:AddLabel({Name = 'A reusable Drawing interface'})
 
 local Enabled = General:AddToggle({
@@ -43,16 +43,16 @@ General:AddKeybind({
     end,
 })
 General:AddColorPicker({
-    Name = 'Accent value', Flag = 'Accent', Default = Color3.fromRGB(10, 132, 255),
+    Name = 'Accent value', Flag = 'Accent', Default = Color3.fromRGB(0, 120, 212),
     Callback = function(value) print('Selected RGB:', value.R, value.G, value.B) end,
 })
-General:AddSeparator({Name = 'ACTIONS'})
+General:AddSeparator({Name = 'Actions'})
 General:AddButton({
     Name = 'Show notification',
     Callback = function() UI:Notify({Title = 'Iris', Content = 'Every visible pixel uses Drawing.new', Duration = 4}) end,
 })
 
-local Settings = Window:AddSection('SETTINGS')
+local Settings = Window:AddSection('Settings')
 Settings:AddLabel({Name = 'Scroll to see more. RightShift reopens a closed window.'})
 local savedConfig
 Settings:AddButton({

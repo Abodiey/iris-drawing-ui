@@ -1,4 +1,5 @@
 local Util = require('Internal.Util')
+local Theme = require('Internal.Theme')
 local Controls = {}
 local Control = {}; Control.__index=Control
 local common={Name=true,Flag=true,Default=true,Callback=true}
@@ -118,7 +119,8 @@ function Controls.Create(section,kind,opts)
         c.OnChanged=opts.OnChanged; if default==nil then default='None' end
     elseif kind=='ColorPicker' then if default==nil then default=Color3.fromRGB(0,122,255) end end
     if valueKinds[kind] then c.Value=c:Validate(default) end
-    c.Height=kind=='Slider' and 62 or (kind=='Separator' and 28 or 46)
+    local metrics=Theme.metrics
+    c.Height=kind=='Slider' and metrics.sliderHeight or (kind=='Separator' and metrics.separatorHeight or (kind=='Label' and metrics.labelHeight or metrics.rowHeight))
     if c.Flag then ui._flags[c.Flag]=c; ui.Flags[c.Flag]=Util.copy(c.Value) end
     table.insert(section.Controls,c); table.insert(ui._controls,c)
     ui._runtime:Dirty()

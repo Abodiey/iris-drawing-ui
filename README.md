@@ -9,7 +9,7 @@ There is no gameplay code and no dependency on JJS or any other project.
 
 ```lua
 local UI = loadstring(game:HttpGet(
-    'https://raw.githubusercontent.com/Abodiey/iris-drawing-ui/main/dist/Iris.lua?v=1.0.15'
+    'https://raw.githubusercontent.com/Abodiey/iris-drawing-ui/main/dist/Iris.lua?v=1.0.16'
 ))()
 local Window = UI:CreateWindow({Name = 'Example'})
 local Section = Window:AddSection('General')
@@ -38,6 +38,24 @@ Madium is the current target; native Luau mock tests cover interactions and clea
 Live Madium hitbox coordinates have been checked against Drawing geometry.
 Native focus and camera input consumption still need verification in the executor. This is not a stock Roblox Studio UI module.
 
+## Visual design
+
+Version 1.0.16 uses a compact Windows 10 light layout: square window and field
+corners, neutral thin borders, blue focus and selection, native capsule switches,
+and circular slider thumbs. Sections use 20-pixel headings with a subtle divider;
+body text is 14 pixels and informational labels are 12 pixels. Informational rows
+are 24 pixels tall, interactive rows 40 pixels, fields 32 pixels, and sliders
+56 pixels. Fields share one right edge; buttons size to their text.
+
+Colors, typography, spacing and motion are centralized in
+`src/Internal/Theme.lua`. Segoe UI is selected only if the Drawing backend
+provides it; otherwise the closest supported numeric font ID (Plex/UI) is used.
+Drawing cannot synthesize a semibold font where the backend offers none.
+The existing APIs, flags, configs and viewport origin handling are unchanged.
+
+Design references: Microsoft's [Windows 10 UWP guidelines](https://download.microsoft.com/download/2/4/A/24A81A29-77CF-4AA5-967E-64E42554F21B/UWP%20app%20design%20guidelines%20v1509.pdf)
+and [compact control sizing](https://learn.microsoft.com/en-us/windows/apps/develop/ui/controls/compact-sizing).
+
 ## Window and sections
 
 ```lua
@@ -55,7 +73,7 @@ Window:SetSize(Vector2.new(520, 620))
 
 Version 1 supports one window per UI instance and any number of sections.
 Sections lay out controls vertically. Drag the title bar, scroll over content,
-or drag the scrollbar. The yellow button minimizes/restores; the red button
+or drag the scrollbar. The title-bar minimize button minimizes/restores; the close button
 hides. RightShift or `SetVisible(true)` reopens the window. Size and position
 are clamped to the viewport; a smaller viewport can override the minimum
 requested size. Controls stop accepting pointer input during hide/minimize.

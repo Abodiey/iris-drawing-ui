@@ -172,7 +172,7 @@ test('scroll clipping and independent popup scroll',function()
     Mock.press('Escape'); window:SetSize(Vector2.new(480,650)); Mock.tick(40)
 end)
 test('popup opens above low anchor, viewport and resize dismiss',function()
-    window:SetSize(Vector2.new(480,640)); Mock.tick(40); window.Position=Vector2.new(500,160); rt:Dirty(); Mock.tick(1)
+    window:SetSize(Vector2.new(480,540)); Mock.tick(40); window.Position=Vector2.new(500,240); rt:Dirty(); Mock.tick(1)
     clickHit(rt,color,'color'); Mock.tick(1)
     assert(rt.popup.rect.y<color._anchor.y); assert(rt.popup.rect.x+rt.popup.rect.w<=1000)
     window:SetSize(Vector2.new(500,640)); assert(not rt.popup)
@@ -225,7 +225,7 @@ test('textbox mouse caret and selection use UTF8 boundaries',function()
     local h=hit(rt,text,'textbox'); local field=h.data
     Mock.click(field.x+8,field.y+10); equal(rt.box.CursorPosition,1)
     Mock.down(field.x+8,field.y+10)
-    Mock.move(field.x+8+rt.renderer:Width('abc',13),field.y+10)
+    Mock.move(field.x+8+rt.renderer:Width('abc',14),field.y+10)
     Mock.up(); equal(rt.box.CursorPosition,4); equal(rt.box.SelectionStart,1)
     Mock.tick(1); Mock.press('Escape')
     text:SetValue(string.rep('é',24)); clickHit(rt,text,'textbox')
@@ -587,6 +587,41 @@ test('Drawing line icons share the existing viewport Y correction',function()
     local line=d.pools.Line[1]
     equal(line.From.Y,43); equal(line.To.Y,48)
     d:SetViewport(rt:Viewport()); rt:Dirty(); Mock.tick(1)
+end)
+
+test('compact metadata, section hierarchy and shared field alignment',function()
+    local item=NewUI(Bundle)
+    local w=item:CreateWindow({Name='Settings',Size=Vector2.new(560,640),Position=Vector2.new(20,20)})
+    local info=w:AddSection('Application')
+    local labels={}
+    for i=1,5 do labels[i]=info:AddLabel({Name='Status '..i}) end
+    local settings=w:AddSection('Preferences')
+    local sw=settings:AddToggle({Name='Enabled'})
+    local dd=settings:AddDropdown({Name='Mode',Options={'Default','Custom'}})
+    local tb=settings:AddTextbox({Name='Profile',Default='Work'})
+    local sl=settings:AddSlider({Name='Intensity',Min=0,Max=100,Default=50})
+    local b=settings:AddButton({Name='Apply settings changes'})
+    Mock.tick(60)
+    equal(labels[1].Height,24)
+    equal(labels[5]._row.y-labels[1]._row.y,96)
+    equal(sw.Height,40); equal(sl.Height,56)
+    equal(dd._anchor.h,32); equal(tb._anchor.h,32)
+    equal(dd._anchor.x,tb._anchor.x)
+    equal(dd._anchor.x+dd._anchor.w,sw._row.x+sw._row.w)
+    local buttonHit=hit(item._runtime,b,'button')
+    equal(buttonHit.rect.h,32)
+    assert(buttonHit.rect.w<sw._row.w/2,'Button must use its native content width')
+    local heading,buttonLabel=false,false
+    for _,d in ipairs(Mock.drawings) do
+        if not d.Removed and d.Visible and d._kind=='Text' and d.Text=='Preferences' then
+            equal(d.Size,20); heading=true
+        end
+    end
+    for _,d in ipairs(Mock.drawings) do
+        if not d.Removed and d.Visible and d._kind=='Text' and d.Text==b.Name then buttonLabel=true end
+    end
+    assert(heading and buttonLabel,'Heading and complete button text must render')
+    item:Destroy()
 end)
 
 test('Destroy idempotent cleanup and fresh reload',function()

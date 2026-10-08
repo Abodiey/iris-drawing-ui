@@ -156,8 +156,8 @@ function Runtime:SetCaret(pointer)
     local prefix=''
     for byte,code in utf8.codes(text:sub(start)) do
         local character=utf8.char(code)
-        local width=self.renderer:Width(prefix,13)
-        local nextWidth=self.renderer:Width(prefix..character,13)
+        local width=self.renderer:Width(prefix,Theme.bodySize)
+        local nextWidth=self.renderer:Width(prefix..character,Theme.bodySize)
         if relative<(width+nextWidth)/2 then break end
         chosen=start+byte-2+#character
         prefix=prefix..character
@@ -174,13 +174,13 @@ function Runtime:DrawEditing(c,field,clip)
     local prefix=text:sub(1,cursor)
     local available=field.w-16
     local start=1
-    while d:Width(prefix,13)>available-2 and #prefix>0 do
+    while d:Width(prefix,Theme.bodySize)>available-2 and #prefix>0 do
         local nextByte=utf8.offset(text,2,start) or (#text+1)
         start=nextByte; prefix=text:sub(start,cursor)
     end
     self.editStart=start
     local remainder=text:sub(start)
-    local visible=d:Fit(remainder,available,13)
+    local visible=d:Fit(remainder,available,Theme.bodySize)
     local shown=visible~=remainder and visible:sub(1,-4) or visible
     local selection=self.box.SelectionStart
     if selection>0 then
@@ -189,14 +189,14 @@ function Runtime:DrawEditing(c,field,clip)
         while a>0 and not utf8.len(text:sub(1,a)) do a=a-1 end
         while b>0 and not utf8.len(text:sub(1,b)) do b=b-1 end
         if b>a then
-            local left=d:Width(text:sub(start,a),13)
-            local right=d:Width(text:sub(start,b),13)
-            d:Rect(Util.rect(field.x+8+left,field.y+4,math.min(available-left,right-left),19),t.accent,clip,14,.5)
+            local left=d:Width(text:sub(start,a),Theme.bodySize)
+            local right=d:Width(text:sub(start,b),Theme.bodySize)
+            d:Rect(Util.rect(field.x+8+left,field.y+7,math.min(available-left,right-left),18),t.accent,clip,14,.5)
         end
     end
-    d:Text(visible,field.x+8,field.y+5,t.text,available,clip,15,13)
-    local caret=d:Width(prefix,13)
-    d:Rect(Util.rect(field.x+8+caret,field.y+5,1,18),t.text,clip,16)
+    d:Text(visible,field.x+8,field.y+8,t.text,available,clip,15,Theme.bodySize)
+    local caret=d:Width(prefix,Theme.bodySize)
+    d:Rect(Util.rect(field.x+8+caret,field.y+8,1,18),t.text,clip,16)
 end
 function Runtime:Hit(rect,owner,role,clip,data)
     local w=self.window
@@ -311,6 +311,7 @@ function Runtime:Draw()
     self.dirty=false; self.hitCount=0
     self.hitOrigin=self.gui.AbsolutePosition
     local d,t,w=self.renderer,Views.Theme,self.window
+    local metrics=t.metrics
     d:SetViewport(self:Viewport())
     d:Begin(self.alpha)
     if w and self.alpha>.001 then
@@ -321,7 +322,7 @@ function Runtime:Draw()
         d:Border(r,t.line,nil,3)
         d:Rect(Util.rect(x+1,y+1,width-2,Theme.titleHeight-1),t.surface,r,3)
         d:Rect(Util.rect(x+1,y+Theme.titleHeight,width-2,1),t.line,r,3)
-        d:Text(w.Name,x+12,y+8,t.text,width-116,r,4,14)
+        d:Text(w.Name,x+12,y+9,t.text,width-116,r,4,t.captionSize)
         local close=Util.rect(x+width-47,y+1,46,Theme.titleHeight-1)
         local minimize=Util.rect(x+width-93,y+1,46,Theme.titleHeight-1)
         local closeAmount=self:Visual(w,'close')
@@ -339,29 +340,31 @@ function Runtime:Draw()
             self:Hit(Util.rect(x,y,width,Theme.titleHeight),w,'windowDrag')
             self:Hit(minimize,w,'minimize'); self:Hit(close,w,'close')
         end
-        self.contentClip=Util.rect(x+12,y+56,width-24,math.max(0,height-68))
+        self.contentClip=Util.rect(x+metrics.padding,y+metrics.contentTop,width-metrics.padding*2,math.max(0,height-metrics.contentTop-metrics.contentBottom))
         local contentHeight=0
-        for _,section in ipairs(w.Sections) do
-            contentHeight=contentHeight+32
+        for index,section in ipairs(w.Sections) do
+            contentHeight=contentHeight+metrics.sectionHeight
             for _,c in ipairs(section.Controls) do contentHeight=contentHeight+c.Height end
-            contentHeight=contentHeight+12
+            if index<#w.Sections then contentHeight=contentHeight+metrics.sectionGap end
         end
-        w.MaxScroll=math.max(0,contentHeight-math.max(0,w.Size.Y-68))
+        w.MaxScroll=math.max(0,contentHeight-math.max(0,w.Size.Y-metrics.contentTop-metrics.contentBottom))
         w.Scroll=Util.clamp(w.Scroll,0,w.MaxScroll)
         if self.contentClip.h>0 then
             self:Hit(self.contentClip,w,'content')
-            local cy=y+56-w.Scroll
+            local cy=self.contentClip.y-w.Scroll
             for _,section in ipairs(w.Sections) do
-                d:Text(section.Name,x+24,cy+5,t.text,width-48,self.contentClip,10,t.headingSize,t.headingFont)
-                cy=cy+32
+                local rowWidth=self.contentClip.w-metrics.scrollbarGutter
+                d:Text(section.Name,self.contentClip.x,cy+4,t.text,rowWidth,self.contentClip,10,t.headingSize,t.headingFont)
+                d:Rect(Util.rect(self.contentClip.x,cy+34,rowWidth,1),t.line,self.contentClip,10)
+                cy=cy+metrics.sectionHeight
                 for _,c in ipairs(section.Controls) do
-                    local row=Util.rect(x+12,cy,width-32,c.Height)
+                    local row=Util.rect(self.contentClip.x,cy,rowWidth,c.Height)
                     c._row=row
-                    c._anchor=Util.rect(row.x+row.w-math.min(180,row.w*.45)-12,row.y+8,math.min(180,row.w*.45),28)
+                    c._anchor=Views.Field(row)
                     if Util.intersect(row,self.contentClip) then Views.Control(self,c,row,self.contentClip) end
                     cy=cy+c.Height
                 end
-                cy=cy+12
+                cy=cy+metrics.sectionGap
             end
             if w.MaxScroll>0 then
                 local track=self.contentClip
@@ -386,8 +389,8 @@ function Runtime:Draw()
         d:Rect(r,t.surface,nil,60)
         d:Border(r,t.line,nil,61)
         d:Rect(Util.rect(r.x,r.y,3,r.h),t.accent,nil,62)
-        d:Text(n.Title,r.x+14,r.y+10,t.text,width-28,r,63,14,t.headingFont)
-        d:Text(n.Content,r.x+14,r.y+37,t.muted,width-28,r,63,13)
+        d:Text(n.Title,r.x+14,r.y+10,t.text,width-28,r,63,t.bodySize,t.headingFont)
+        d:Text(n.Content,r.x+14,r.y+37,t.muted,width-28,r,63,t.bodySize)
     end
     d:Finish()
     for i=self.hitCount+1,#self.hitFrames do self.hitFrames[i].Visible=false end
