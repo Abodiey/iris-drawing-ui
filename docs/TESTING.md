@@ -75,3 +75,8 @@ wheel sink/pass over windows and popups, hidden/minimized bounds, independent
 wheel action cleanup, Circle pooling/64 sides, and partially clipped circle bands.
 Also check camera zoom stays unchanged while wheeling over the window and works
 normally outside it; verify clicks line up with the cursor in Madium.
+
+Version 1.0.5 corrects pointer translation direction for Madium: add the current
+GUI inset rather than subtract it. Regression clicks use raw mouse coordinates
+above the corresponding Drawing hit rectangle, including a changing inset.
+Live executor alignment still requires user confirmation.

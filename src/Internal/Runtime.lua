@@ -82,11 +82,11 @@ end
 function Runtime:Connect(signal,fn) table.insert(self.connections,signal:Connect(fn)) end
 function Runtime:Dirty() self.dirty=true end
 function Runtime:MousePosition()
-    -- Drawing layout uses viewport coordinates; mouse polling includes the GUI inset.
-    -- Read it dynamically: Roblox can change the inset when its top bar changes.
+    -- Madium Drawing positions are inset below the mouse polling origin.
+    -- Translate the cursor into that same space; subtracting raises hit testing.
     local mouse=self.input:GetMouseLocation()
     local inset=self.guiService:GetGuiInset()
-    return Vector2.new(mouse.X-inset.X,mouse.Y-inset.Y)
+    return Vector2.new(mouse.X+inset.X,mouse.Y+inset.Y)
 end
 function Runtime:OwnsPointer(p)
     local w=self.window

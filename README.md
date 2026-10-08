@@ -9,7 +9,7 @@ There is no gameplay code and no dependency on JJS or any other project.
 
 ```lua
 local UI = loadstring(game:HttpGet(
-    'https://raw.githubusercontent.com/Abodiey/iris-drawing-ui/main/dist/Iris.lua?v=1.0.4'
+    'https://raw.githubusercontent.com/Abodiey/iris-drawing-ui/main/dist/Iris.lua?v=1.0.5'
 ))()
 local Window = UI:CreateWindow({Name = 'Example'})
 local Section = Window:AddSection('General')
@@ -17,7 +17,7 @@ local Section = Window:AddSection('General')
 
 `dist/Iris.lua` bundles all modules; loading it performs no further HTTP requests.
 Use a commit SHA in place of `main` to pin a specific revision.
-Version 1.0.4 adds the light appearance, smooth native circle knobs, and scoped
+Version 1.0.5 adds the light appearance, smooth native circle knobs, and scoped
 wheel capture so scrolling over the interface does not also zoom the camera.
 The complete [example](examples/Example.lua) demonstrates every control and config handling.
 
@@ -25,8 +25,9 @@ The complete [example](examples/Example.lua) demonstrates every control and conf
 and a [Synapse-compatible Drawing API](https://synapsexdocs.github.io/libraries/drawing/)
 supporting Square/Text/Circle, `TextBounds`, `ZIndex`, `Font = 2`, `NumSides`,
 `Remove()`, and `Transparency` where 1 is opaque and 0 is fully transparent.
-Layout and pointer coordinates use viewport pixels; the current Roblox GUI
-inset is removed from mouse polling for hit testing, dragging, and scrolling.
+Pointer polling is translated into Madium Drawing coordinates by adding the
+current Roblox GUI inset for hit testing, dragging, and scrolling. Version 1.0.5
+corrects the reversed subtraction in 1.0.4.
 All visible pixels remain Drawing objects. The hidden TextBox only handles input.
 Madium is the current target; native Luau mock tests cover interactions and cleanup.
 Live Madium focus, camera input consumption, and coordinate alignment still need
