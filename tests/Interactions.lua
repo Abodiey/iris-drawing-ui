@@ -203,7 +203,7 @@ test('notification cap, stacking and expiry',function()
     fails(function() ui:Notify({Duration=0}) end)
 end)
 test('single centralized connections and idle primitive reuse',function()
-    local count=Mock.liveConnections(); equal(count,10)
+    local count=Mock.liveConnections(); equal(count,11)
     Mock.tick(60); local objects=#Mock.drawings
     Mock.tick(100); equal(#Mock.drawings,objects)
     for _=1,10 do rt:Dirty(); Mock.tick(1) end
@@ -496,13 +496,42 @@ test('native circles are smooth pooled and fall back to clipping bands',function
     rt:Dirty(); Mock.tick(1)
 end)
 
+test('Drawing cursor shares UIS coordinates and restores native cursor ownership',function()
+    local input=game:GetService('UserInputService')
+    input.WindowFocused:Fire()
+    input.MouseIconEnabled=true
+    window:SetVisible(true); window:SetMinimized(false); Mock.tick(60)
+    clickHit(rt,toggle,'toggle'); Mock.tick(1)
+    equal(input.MouseIconEnabled,false)
+    local cursor=rt.renderer.pools.Triangle[1]
+    assert(cursor.Visible)
+    equal(cursor.PointA.X,Mock.mouse.X); equal(cursor.PointA.Y,Mock.mouse.Y)
+    local first=cursor
+    Mock.move(Mock.mouse.X+1,Mock.mouse.Y+1); Mock.tick(1)
+    equal(rt.renderer.pools.Triangle[1],first)
+    equal(first.PointA.Y,Mock.mouse.Y)
+    Mock.move(0,0); Mock.tick(1)
+    equal(input.MouseIconEnabled,true); assert(not first.Visible)
+    input.MouseIconEnabled=false
+    clickHit(rt,toggle,'toggle'); Mock.tick(1)
+    Mock.move(0,0); Mock.tick(1); equal(input.MouseIconEnabled,false)
+    input.MouseIconEnabled=true
+    clickHit(rt,toggle,'toggle'); Mock.tick(1)
+    input.WindowFocusReleased:Fire(); Mock.tick(1)
+    equal(input.MouseIconEnabled,true); assert(not first.Visible)
+    input.WindowFocused:Fire(); Mock.tick(1)
+    equal(input.MouseIconEnabled,false)
+    window:SetVisible(false); Mock.tick(1); equal(input.MouseIconEnabled,true)
+    window:SetVisible(true); Mock.tick(60)
+end)
+
 test('Destroy idempotent cleanup and fresh reload',function()
-    ui:Destroy(); ui:Destroy(); assert(next(Mock.actions)==nil); equal(Mock.liveConnections(),0); equal(Mock.visibleDrawings(),0)
+    ui:Destroy(); ui:Destroy(); equal(game:GetService('UserInputService').MouseIconEnabled,true); assert(next(Mock.actions)==nil); equal(Mock.liveConnections(),0); equal(Mock.visibleDrawings(),0)
     for _,d in ipairs(Mock.drawings) do assert(d.Removed,'Leaked drawing') end
     for _,g in ipairs(Mock.instances) do assert(g.Destroyed,'Leaked invisible instance') end
     assert(next(ui.Flags)==nil and next(ui._flags)==nil and #ui._controls==0)
     fails(function() toggle:SetValue(true) end)
     local fresh=NewUI(Bundle); fresh:CreateWindow({Name='Reload'}):AddSection('A'):AddToggle({Name='Enabled',Flag='enabled'})
-    Mock.tick(40); equal(Mock.liveConnections(),10); fresh:Destroy(); equal(Mock.liveConnections(),0)
+    Mock.tick(40); equal(Mock.liveConnections(),11); fresh:Destroy(); equal(Mock.liveConnections(),0)
 end)
 print(string.format('%d interaction groups passed',passed))

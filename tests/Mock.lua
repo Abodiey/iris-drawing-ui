@@ -46,7 +46,7 @@ for word in ('None Unknown Escape Return KeypadEnter Backspace Delete RightShift
 for _,name in ipairs({'Keyboard','MouseButton1','MouseButton2','MouseMovement','MouseWheel'}) do Enum.UserInputType[name]={Name=name} end
 Drawing={}
 function Drawing.new(kind)
-    assert(kind=='Square' or kind=='Text' or kind=='Circle')
+    assert(kind=='Square' or kind=='Text' or kind=='Circle' or kind=='Triangle')
     local object={_props={Visible=false,Text='',Size=15},_kind=kind,Removed=false}
     function object:Remove() assert(not self.Removed,'Double Remove'); self.Removed=true end
     setmetatable(object,{__index=function(o,k)
@@ -55,7 +55,7 @@ function Drawing.new(kind)
     end,__newindex=function(o,k,v) o._props[k]=v end})
     table.insert(Mock.drawings,object); return object
 end
-local uis={InputBegan=signal(),InputChanged=signal(),InputEnded=signal(),WindowFocusReleased=signal()}
+local uis={InputBegan=signal(),InputChanged=signal(),InputEnded=signal(),WindowFocusReleased=signal(),WindowFocused=signal(),MouseIconEnabled=true}
 function uis:GetMouseLocation() return Mock.mouse end
 function uis:GetFocusedTextBox() return Mock.focused end
 local run={RenderStepped=signal()}

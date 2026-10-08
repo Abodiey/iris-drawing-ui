@@ -9,7 +9,7 @@ There is no gameplay code and no dependency on JJS or any other project.
 
 ```lua
 local UI = loadstring(game:HttpGet(
-    'https://raw.githubusercontent.com/Abodiey/iris-drawing-ui/main/dist/Iris.lua?v=1.0.12'
+    'https://raw.githubusercontent.com/Abodiey/iris-drawing-ui/main/dist/Iris.lua?v=1.0.13'
 ))()
 local Window = UI:CreateWindow({Name = 'Example'})
 local Section = Window:AddSection('General')
@@ -17,7 +17,7 @@ local Section = Window:AddSection('General')
 
 `dist/Iris.lua` bundles all modules; loading it performs no further HTTP requests.
 Use a commit SHA in place of `main` to pin a specific revision.
-Version 1.0.12 converts Drawing coordinates through the invisible ScreenGui’s
+Version 1.0.13 converts Drawing coordinates through the invisible ScreenGui’s
 actual `AbsolutePosition`, including when its origin changes. Input uses raw
 `UserInputService:GetMouseLocation()` and absolute GUI hitbox bounds.
 Version 1.0.10 adds the light appearance, smooth native circle knobs, and scoped
@@ -174,7 +174,7 @@ UI:Destroy()      -- idempotent; permanently unloads this instance
 -- Window:Destroy() does the same thing.
 ```
 
-Destroy disconnects every owned connection, removes owned Drawing objects,
+Destroy restores the native cursor if Iris owns it, disconnects every owned connection, removes owned Drawing objects,
 destroys the hidden ScreenGui/TextBox, clears flags, control lists, popups,
 notifications, and interaction state. Other scripts' Drawing objects are untouched.
 Load the bundled entry point again to create a fresh instance. Setters on a
@@ -223,3 +223,7 @@ smoke test. [API contract](docs/API.md) is the short reference for future edits.
 
 MIT licensed. Original implementation; API familiarity does not imply copying
 Rayfield, Linoria, or Apple's assets.
+
+### Cursor coordinates
+
+While the pointer is over Iris (or dragging a widget), Iris renders a small Drawing arrow at raw `UserInputService:GetMouseLocation()` and temporarily hides Roblox's cursor. This keeps the displayed UI pointer and controls in one Drawing canvas even on backends whose canvas origin differs from Roblox's native cursor. The native cursor returns outside Iris, on focus loss, when hiding the window, and on destroy. No mouse offsets, inset queries, secondary mouse sources, or calibration are used. The arrow can shift at the boundary on a mismatched backend; this is a shared-canvas workaround, not an automatic correction of that backend's origin.

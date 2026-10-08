@@ -3,7 +3,7 @@ local Renderer=require('Internal.Renderer')
 local Views=require('Controls.Views')
 local Runtime={}; Runtime.__index=Runtime
 function Runtime.new(ui)
-    local self=setmetatable({ui=ui,connections={},hits={},hitFrames={},hitCount=0,dirty=true,alpha=0,height=52,notifications={},held={},animations={},pointer=Vector2.new(0,0)},Runtime)
+    local self=setmetatable({ui=ui,connections={},hits={},hitFrames={},hitCount=0,dirty=true,alpha=0,height=52,notifications={},held={},animations={},focused=true,pointer=Vector2.new(0,0)},Runtime)
     local ok,message=pcall(function()
         self.input=game:GetService('UserInputService')
         self.actionService=game:GetService('ContextActionService')
@@ -32,7 +32,10 @@ function Runtime.new(ui)
         self:Connect(self.input.InputBegan,function(input,processed) self:Began(input,processed) end)
         self:Connect(self.input.InputChanged,function(input) self:Changed(input) end)
         self:Connect(self.input.InputEnded,function(input) self:Ended(input) end)
-        self:Connect(self.input.WindowFocusReleased,function() self:CancelInteraction(true) end)
+        self:Connect(self.input.WindowFocusReleased,function()
+            self.focused=false; self:SetCursor(false); self:CancelInteraction(true)
+        end)
+        self:Connect(self.input.WindowFocused,function() self.focused=true; self.pointer=self:MousePosition(); self:Dirty() end)
         self.scrollAction='IrisDrawingWheel_'..tostring(self)
         self.actionService:BindActionAtPriority(self.scrollAction,function()
             if self.ui._destroyed then return Enum.ContextActionResult.Pass end
@@ -83,6 +86,18 @@ function Runtime:Connect(signal,fn) table.insert(self.connections,signal:Connect
 function Runtime:Dirty() self.dirty=true end
 function Runtime:MousePosition()
     return self.input:GetMouseLocation()
+end
+function Runtime:SetCursor(active)
+    if active then
+        if not self.cursorOwned then
+            self.savedMouseIcon=self.input.MouseIconEnabled
+            self.cursorOwned=true
+        end
+        self.input.MouseIconEnabled=false
+    elseif self.cursorOwned then
+        self.input.MouseIconEnabled=self.savedMouseIcon
+        self.cursorOwned=false; self.savedMouseIcon=nil
+    end
 end
 function Runtime:OwnsPointer(p)
     return self:At(p)~=nil
@@ -329,6 +344,9 @@ function Runtime:Draw()
         d:Text(n.Title,r.x+14,r.y+10,t.text,width-28,r,61,15)
         d:Text(n.Content,r.x+14,r.y+37,t.muted,width-28,r,61,13)
     end
+    local cursorActive=w and w.Visible and self.focused and (self.drag~=nil or self:OwnsPointer(self.pointer))
+    self:SetCursor(cursorActive)
+    if cursorActive then d:Cursor(self.pointer) end
     d:Finish()
     for i=self.hitCount+1,#self.hitFrames do self.hitFrames[i].Visible=false end
     for i=#self.hits,self.hitCount+1,-1 do self.hits[i]=nil end
@@ -442,6 +460,7 @@ function Runtime:Changed(input)
     if input.UserInputType==Enum.UserInputType.MouseMovement then
         self.pointer=self:MousePosition()
         if self.drag then self:UpdateDrag() else self:Hover() end
+        self:Dirty() -- The Drawing cursor follows every pointer movement.
     elseif input.UserInputType==Enum.UserInputType.MouseWheel then
         self.pointer=self:MousePosition()
         if self.dirty then self:Draw() end
@@ -483,6 +502,7 @@ function Runtime:Notify(opts)
     self:Dirty()
 end
 function Runtime:Destroy()
+    if self.input then self:SetCursor(false) end
     if self.scrollAction and self.actionService then self.actionService:UnbindAction(self.scrollAction) end
     self.scrollAction=nil
     if self.watchdog and task and type(task.cancel)=='function' and self.watchdog~=coroutine.running() then

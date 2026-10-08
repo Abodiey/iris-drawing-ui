@@ -3,7 +3,7 @@ local Renderer = {}
 Renderer.__index = Renderer
 function Renderer.new()
     assert(Drawing and type(Drawing.new)=='function', 'Iris Drawing requires Drawing.new')
-    local self = setmetatable({pools={Square={},Text={},Circle={}}, used={Square=0,Text=0,Circle=0},
+    local self = setmetatable({pools={Square={},Text={},Circle={},Triangle={}}, used={Square=0,Text=0,Circle=0,Triangle=0},
         create=Drawing.new}, Renderer)
     local ok, err = pcall(function()
         self.measure = self.create('Text')
@@ -28,7 +28,7 @@ function Renderer:Bounds(text,size)
     return bounds
 end
 function Renderer:Begin(alpha)
-    self.used.Square, self.used.Text, self.used.Circle = 0, 0, 0
+    for kind in pairs(self.used) do self.used[kind]=0 end
     self.alpha = alpha or 1
 end
 function Renderer:Acquire(kind, z)
@@ -39,10 +39,10 @@ function Renderer:Acquire(kind, z)
         object = self.create(kind)
         self.pools[kind][index] = object
         self:Set(object,'Visible',false)
-        if kind=='Square' or kind=='Circle' then
+        if kind=='Square' or kind=='Circle' or kind=='Triangle' then
             self:Set(object,'Filled',true); self:Set(object,'Thickness',1)
             if kind=='Circle' then pcall(function() self:Set(object,'NumSides',64) end) end
-        else self:Set(object,'Font',2); self:Set(object,'Center',false); self:Set(object,'Outline',false) end
+        elseif kind=='Text' then self:Set(object,'Font',2); self:Set(object,'Center',false); self:Set(object,'Outline',false) end
     end
     self:Set(object,'ZIndex',z or 10)
     return object
@@ -106,6 +106,21 @@ function Renderer:Text(text, x, y, color, width, clip, z, size)
     self:Set(d,'Text',text); self:Set(d,'Color',color)
     self:Set(d,'Transparency',self.alpha); self:Set(d,'Visible',true)
 end
+function Renderer:Cursor(p)
+    -- Put the pointer in the same Drawing canvas as the interface.
+    local outer=self:Acquire('Triangle',90)
+    self:Set(outer,'PointA',p)
+    self:Set(outer,'PointB',Vector2.new(p.X,p.Y+17))
+    self:Set(outer,'PointC',Vector2.new(p.X+12,p.Y+12))
+    self:Set(outer,'Color',Color3.new(1,1,1))
+    self:Set(outer,'Transparency',1); self:Set(outer,'Visible',true)
+    local inner=self:Acquire('Triangle',91)
+    self:Set(inner,'PointA',Vector2.new(p.X+2,p.Y+4))
+    self:Set(inner,'PointB',Vector2.new(p.X+2,p.Y+14))
+    self:Set(inner,'PointC',Vector2.new(p.X+9,p.Y+11))
+    self:Set(inner,'Color',Color3.new(0,0,0))
+    self:Set(inner,'Transparency',1); self:Set(inner,'Visible',true)
+end
 function Renderer:Finish()
     for kind,pool in pairs(self.pools) do
         for i=self.used[kind]+1,#pool do self:Set(pool[i],'Visible',false) end
@@ -114,6 +129,6 @@ end
 function Renderer:Destroy()
     if self.measure then self.measure:Remove(); self.measure=nil end
     for _,pool in pairs(self.pools) do for _,d in ipairs(pool) do d:Remove() end end
-    self.pools={Square={},Text={},Circle={}}
+    self.pools={Square={},Text={},Circle={},Triangle={}}
 end
 return Renderer
