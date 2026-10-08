@@ -3,7 +3,7 @@ local previous = rawget(_G, 'IrisDrawingExample')
 if previous then previous:Destroy() end
 
 local UI = loadstring(game:HttpGet(
-    'https://raw.githubusercontent.com/Abodiey/iris-drawing-ui/main/dist/Iris.lua?v=1.0.14'
+    'https://raw.githubusercontent.com/Abodiey/iris-drawing-ui/main/dist/Iris.lua?v=1.0.15'
 ))()
 _G.IrisDrawingExample = UI
 

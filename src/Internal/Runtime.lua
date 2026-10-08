@@ -1,9 +1,10 @@
 local Util=require('Internal.Util')
 local Renderer=require('Internal.Renderer')
 local Views=require('Controls.Views')
+local Theme=require('Internal.Theme')
 local Runtime={}; Runtime.__index=Runtime
 function Runtime.new(ui)
-    local self=setmetatable({ui=ui,connections={},hits={},hitFrames={},hitCount=0,dirty=true,alpha=0,height=52,notifications={},held={},animations={},pointer=Vector2.new(0,0)},Runtime)
+    local self=setmetatable({ui=ui,connections={},hits={},hitFrames={},hitCount=0,dirty=true,alpha=0,height=Theme.titleHeight,visualStates={},visualAnimations={},notifications={},held={},animations={},pointer=Vector2.new(0,0)},Runtime)
     local ok,message=pcall(function()
         self.input=game:GetService('UserInputService')
         self.actionService=game:GetService('ContextActionService')
@@ -91,12 +92,32 @@ function Runtime:Viewport()
     local camera=self.workspace.CurrentCamera
     return camera and camera.ViewportSize or Vector2.new(1280,720)
 end
-function Runtime:ClosePopup() if self.popup then self.popup=nil; self:Dirty() end end
+function Runtime:ClosePopup()
+    if self.popup then
+        self.retiringPopup=self.popup
+        self.retiringPopup.startAlpha=self.popup.alpha or 1
+        self.retiringPopup.elapsed=0
+        self.popup=nil; self:Dirty()
+    end
+end
+function Runtime:Visual(owner,role,data)
+    local states=self.visualStates[owner]
+    if not states then states={}; self.visualStates[owner]=states end
+    local key=role..'\0'..tostring(data or '')
+    local state=states[key]
+    if not state then state={value=0,target=0}; states[key]=state end
+    local target=(self.hoverOwner==owner and self.hoverRole==role and (data==nil or self.hoverData==data)) and 1 or 0
+    if state.target~=target then
+        state.start=state.value; state.target=target; state.elapsed=0
+        self.visualAnimations[state]=true; self:Dirty()
+    end
+    return state.value
+end
 function Runtime:ReleaseKey(c)
     if self.held[c] then self.held[c]=nil; Util.safe(c.Callback,false) end
 end
 function Runtime:CancelInteraction(commit)
-    self.drag=nil; self.capture=nil; self:ClosePopup(); self:Blur(commit)
+    self.drag=nil; self.capture=nil; self.pressedHit=nil; self:ClosePopup(); self:Blur(commit)
     local keys={}; for c in pairs(self.held) do table.insert(keys,c) end
     for _,c in ipairs(keys) do self:ReleaseKey(c) end
     self:Dirty()
@@ -175,7 +196,7 @@ function Runtime:DrawEditing(c,field,clip)
     end
     d:Text(visible,field.x+8,field.y+5,t.text,available,clip,15,13)
     local caret=d:Width(prefix,13)
-    d:Rect(Util.rect(field.x+8+caret,field.y+5,1,18),t.white,clip,16)
+    d:Rect(Util.rect(field.x+8+caret,field.y+5,1,18),t.text,clip,16)
 end
 function Runtime:Hit(rect,owner,role,clip,data)
     local w=self.window
@@ -221,7 +242,7 @@ function Runtime:Animate(c)
     local target
     if c.Kind=='Toggle' then target=c.Value and 1 or 0
     elseif c.Kind=='Slider' then target=(c.Value-c.Min)/(c.Max-c.Min) end
-    if target then self.animations[c]=target end
+    if target then self.animations[c]={start=c._visual,target=target,elapsed=0} end
 end
 function Runtime:Step(dt)
     if self.ui._destroyed then return end
@@ -233,15 +254,37 @@ function Runtime:Step(dt)
     end
     local w=self.window
     local targetAlpha=w and w.Visible and 1 or 0
-    local targetHeight=w and (w.Minimized and 52 or w.Size.Y) or 52
+    local targetHeight=w and (w.Minimized and Theme.titleHeight or w.Size.Y) or Theme.titleHeight
     local ease=1-math.exp(-math.min(dt,.1)*20)
     if math.abs(self.alpha-targetAlpha)>.001 then self.alpha=self.alpha+(targetAlpha-self.alpha)*ease; self:Dirty()
     elseif self.alpha~=targetAlpha then self.alpha=targetAlpha; self:Dirty() end
     if math.abs(self.height-targetHeight)>.1 then self.height=self.height+(targetHeight-self.height)*ease; self:Dirty()
     elseif self.height~=targetHeight then self.height=targetHeight; self:Dirty() end
-    for c,target in pairs(self.animations) do
-        c._visual=c._visual+(target-c._visual)*ease
-        if math.abs(c._visual-target)<.002 then c._visual=target; self.animations[c]=nil end
+    for c,a in pairs(self.animations) do
+        a.elapsed=math.min(Theme.motion.control,a.elapsed+dt)
+        local progress=a.elapsed/Theme.motion.control
+        c._visual=a.start+(a.target-a.start)*(1-(1-progress)^3)
+        if progress==1 then self.animations[c]=nil end
+        self:Dirty()
+    end
+    for state in pairs(self.visualAnimations) do
+        state.elapsed=math.min(Theme.motion.hover,state.elapsed+dt)
+        local progress=state.elapsed/Theme.motion.hover
+        state.value=state.start+(state.target-state.start)*(1-(1-progress)^3)
+        if progress==1 then self.visualAnimations[state]=nil end
+        self:Dirty()
+    end
+    if self.popup and (self.popup.alpha or 0)<1 then
+        local p=self.popup
+        p.elapsed=math.min(Theme.motion.popup,(p.elapsed or 0)+dt)
+        p.alpha=1-(1-p.elapsed/Theme.motion.popup)^3
+        self:Dirty()
+    end
+    if self.retiringPopup then
+        local p=self.retiringPopup
+        p.elapsed=math.min(Theme.motion.popup,p.elapsed+dt)
+        p.alpha=p.startAlpha*(1-p.elapsed/Theme.motion.popup)^3
+        if p.elapsed==Theme.motion.popup then self.retiringPopup=nil end
         self:Dirty()
     end
     local now=os.clock()
@@ -258,7 +301,7 @@ function Runtime:ClampWindow()
     local w=self.window; if not w then return end
     local view=self:Viewport()
     w.Size=Vector2.new(math.min(w.RequestedSize.X,math.max(180,view.X-16)),math.min(w.RequestedSize.Y,math.max(100,view.Y-16)))
-    w.Position=Vector2.new(Util.clamp(w.Position.X,0,math.max(0,view.X-w.Size.X)),Util.clamp(w.Position.Y,0,math.max(0,view.Y-(w.Minimized and 52 or w.Size.Y))))
+    w.Position=Vector2.new(Util.clamp(w.Position.X,0,math.max(0,view.X-w.Size.X)),Util.clamp(w.Position.Y,0,math.max(0,view.Y-(w.Minimized and Theme.titleHeight or w.Size.Y))))
 end
 function Runtime:Draw()
     self.dirty=false; self.hitCount=0
@@ -270,17 +313,26 @@ function Runtime:Draw()
         local x,y,width=w.Position.X,w.Position.Y,w.Size.X
         local height=self.height
         local r=Util.rect(x,y,width,height)
-        d:Round(Util.rect(x-3,y+2,width+6,height+3),15,Color3.new(0,0,0),nil,1,.22)
-        d:Round(r,12,t.bg,nil,2,.97)
-        d:Text(w.Name,x+18,y+17,t.text,width-106,r,4,17)
-        local close=Util.rect(x+width-35,y+14,22,22)
-        local minimize=Util.rect(x+width-65,y+14,22,22)
-        d:Round(close,11,self.hoverRole=='close' and Color3.fromRGB(255,105,98) or Color3.fromRGB(255,95,87),r,4)
-        d:Text('x',close.x+7,close.y+2,t.bg,12,r,5,13)
-        d:Round(minimize,11,Color3.fromRGB(254,188,46),r,4)
-        d:Text(w.Minimized and '+' or '-',minimize.x+6,minimize.y+2,t.bg,14,r,5,13)
+        d:Rect(r,t.bg,nil,2)
+        d:Border(r,t.line,nil,3)
+        d:Rect(Util.rect(x+1,y+1,width-2,Theme.titleHeight-1),t.surface,r,3)
+        d:Rect(Util.rect(x+1,y+Theme.titleHeight,width-2,1),t.line,r,3)
+        d:Text(w.Name,x+12,y+8,t.text,width-116,r,4,14)
+        local close=Util.rect(x+width-47,y+1,46,Theme.titleHeight-1)
+        local minimize=Util.rect(x+width-93,y+1,46,Theme.titleHeight-1)
+        local closeAmount=self:Visual(w,'close')
+        local pressed=self.pressedHit
+        local closePressed=pressed and pressed.owner==w and pressed.role=='close'
+        d:Rect(close,closePressed and t.closePressed or Theme.Mix(t.surface,t.closeHover,closeAmount),r,4)
+        d:Rect(minimize,pressed and pressed.owner==w and pressed.role=='minimize' and t.pressed or Theme.Mix(t.surface,t.hover,self:Visual(w,'minimize')),r,4)
+        local icon=closePressed and t.white or Theme.Mix(t.text,t.white,closeAmount)
+        local cx,cy=close.x+23,y+16
+        d:Line(cx-4,cy-4,cx+4,cy+4,icon,r,5)
+        d:Line(cx-4,cy+4,cx+4,cy-4,icon,r,5)
+        if w.Minimized then d:Border(Util.rect(minimize.x+18,y+12,10,8),t.text,r,5)
+        else d:Rect(Util.rect(minimize.x+18,y+17,10,1),t.text,r,5) end
         if w.Visible then
-            self:Hit(Util.rect(x,y,width,52),w,'windowDrag')
+            self:Hit(Util.rect(x,y,width,Theme.titleHeight),w,'windowDrag')
             self:Hit(minimize,w,'minimize'); self:Hit(close,w,'close')
         end
         self.contentClip=Util.rect(x+12,y+56,width-24,math.max(0,height-68))
@@ -296,7 +348,7 @@ function Runtime:Draw()
             self:Hit(self.contentClip,w,'content')
             local cy=y+56-w.Scroll
             for _,section in ipairs(w.Sections) do
-                d:Text(section.Name,x+24,cy+7,t.muted,width-48,self.contentClip,10,12)
+                d:Text(section.Name,x+24,cy+5,t.text,width-48,self.contentClip,10,t.headingSize,t.headingFont)
                 cy=cy+32
                 for _,c in ipairs(section.Controls) do
                     local row=Util.rect(x+12,cy,width-32,c.Height)
@@ -311,10 +363,11 @@ function Runtime:Draw()
                 local track=self.contentClip
                 local thumb=math.max(24,track.h*track.h/contentHeight)
                 local bar=Util.rect(x+width-8,track.y+(track.h-thumb)*w.Scroll/w.MaxScroll,3,thumb)
-                d:Round(bar,1.5,t.muted,nil,20)
+                d:Rect(bar,t.muted,nil,20)
                 self:Hit(Util.rect(bar.x-4,bar.y,11,bar.h),w,'scrollbar',nil,{track=track,thumb=thumb})
             end
-            Views.Popup(self)
+            if self.retiringPopup then Views.Popup(self,self.retiringPopup,true) end
+            Views.Popup(self,self.popup,false)
         end
     end
     d.alpha=1
@@ -326,9 +379,11 @@ function Runtime:Draw()
         local r=Util.rect(viewport.X-width-12+(1-n.alpha)*20,ny-78,width,72)
         ny=ny-84
         d.alpha=n.alpha
-        d:Round(r,10,t.card,nil,60,.97)
-        d:Text(n.Title,r.x+14,r.y+10,t.text,width-28,r,61,15)
-        d:Text(n.Content,r.x+14,r.y+37,t.muted,width-28,r,61,13)
+        d:Rect(r,t.surface,nil,60)
+        d:Border(r,t.line,nil,61)
+        d:Rect(Util.rect(r.x,r.y,3,r.h),t.accent,nil,62)
+        d:Text(n.Title,r.x+14,r.y+10,t.text,width-28,r,63,14,t.headingFont)
+        d:Text(n.Content,r.x+14,r.y+37,t.muted,width-28,r,63,13)
     end
     d:Finish()
     for i=self.hitCount+1,#self.hitFrames do self.hitFrames[i].Visible=false end
@@ -338,7 +393,7 @@ function Runtime:OpenPopup(c)
     self:Blur(true); self.capture=nil
     if self.ui._destroyed then return end
     if self.popup and self.popup.control==c then self:ClosePopup()
-    else self.popup={control=c,scroll=0}; self:Dirty() end
+    else self.retiringPopup=nil; self.popup={control=c,scroll=0,alpha=0,elapsed=0}; self:Dirty() end
 end
 function Runtime:UpdateDrag()
     local drag=self.drag; if not drag then return end
@@ -409,6 +464,7 @@ function Runtime:Began(input,processed)
         if self.dirty then self:Draw(); hit=self:At(self.pointer) end
     end
     if not hit then self.capture=nil; self:Dirty(); return end
+    self.pressedHit=hit; self:Dirty()
     local c,role=hit.owner,hit.role
     if role=='windowDrag' then
         self:ClosePopup(); self.capture=nil
@@ -466,7 +522,7 @@ function Runtime:Ended(input)
     if self.ui._destroyed then return end
     if input.UserInputType==Enum.UserInputType.MouseButton1 then
         if self.drag and self.drag.role=='textselect' and self.box.CursorPosition==self.box.SelectionStart then self.box.SelectionStart=-1 end
-        self.drag=nil
+        self.drag=nil; self.pressedHit=nil; self:Dirty()
     elseif input.UserInputType==Enum.UserInputType.Keyboard then
         local keys={}
         for c in pairs(self.held) do if c.Value==input.KeyCode.Name then table.insert(keys,c) end end
@@ -490,7 +546,7 @@ function Runtime:Destroy()
         pcall(task.cancel,self.watchdog)
     end
     self.watchdog=nil
-    self.edit=nil; self.capture=nil; self.drag=nil; self.popup=nil
+    self.edit=nil; self.capture=nil; self.drag=nil; self.popup=nil; self.retiringPopup=nil; self.pressedHit=nil
     for _,connection in ipairs(self.connections) do connection:Disconnect() end
     self.connections={}
     for c in pairs(self.held) do self:ReleaseKey(c) end
@@ -499,6 +555,6 @@ function Runtime:Destroy()
     self.hitFrames={}; self.hitCount=0
     if self.gui then self.gui:Destroy(); self.gui=nil end
     if self.renderer then self.renderer:Destroy() end
-    self.hits={}; self.notifications={}; self.animations={}; self.window=nil
+    self.hits={}; self.notifications={}; self.animations={}; self.visualStates={}; self.visualAnimations={}; self.window=nil
 end
 return Runtime

@@ -1,15 +1,16 @@
 local Util = require('Internal.Util')
+local Theme = require('Internal.Theme')
 local RATIOS = {16/9,16/10,4/3,5/4,3/2,21/9,32/9,2560/1080,2560/1440,3440/1440,3840/1600}
 local Renderer = {}
 Renderer.__index = Renderer
 function Renderer.new()
     assert(Drawing and type(Drawing.new)=='function', 'Iris Drawing requires Drawing.new')
-    local self = setmetatable({pools={Square={},Text={},Circle={}}, used={Square=0,Text=0,Circle=0},
+    local self = setmetatable({pools={Square={},Text={},Circle={},Line={}}, used={Square=0,Text=0,Circle=0,Line=0},
         create=Drawing.new,offsetY=0,maxViewportHeight=0}, Renderer)
     local ok, err = pcall(function()
         self.measure = self.create('Text')
         self:Set(self.measure,'Visible',false)
-        self:Set(self.measure,'Font',2)
+        self:Set(self.measure,'Font',Theme.font)
         self:Set(self.measure,'Size',15)
     end)
     if not ok then self:Destroy(); error('Drawing Text is unsupported: '..tostring(err)) end
@@ -33,7 +34,7 @@ function Renderer:SetViewport(view)
     self.offsetY=(fullHeight or self.maxViewportHeight)-y
 end
 function Renderer:Set(object,property,value)
-    if property=='Position' and self.offsetY~=0 then
+    if (property=='Position' or property=='From' or property=='To') and self.offsetY~=0 then
         value=Vector2.new(value.X,value.Y+self.offsetY)
     end
     object[property]=value
@@ -41,7 +42,8 @@ end
 function Renderer:Get(object,property)
     return object[property]
 end
-function Renderer:Bounds(text,size)
+function Renderer:Bounds(text,size,font)
+    self:Set(self.measure,'Font',font or Theme.font)
     self:Set(self.measure,'Size',size or 15)
     self:Set(self.measure,'Text',text)
     local bounds=self:Get(self.measure,'TextBounds')
@@ -49,7 +51,7 @@ function Renderer:Bounds(text,size)
     return bounds
 end
 function Renderer:Begin(alpha)
-    self.used.Square, self.used.Text, self.used.Circle = 0, 0, 0
+    self.used.Square, self.used.Text, self.used.Circle, self.used.Line = 0, 0, 0, 0
     self.alpha = alpha or 1
 end
 function Renderer:Acquire(kind, z)
@@ -63,7 +65,7 @@ function Renderer:Acquire(kind, z)
         if kind=='Square' or kind=='Circle' then
             self:Set(object,'Filled',true); self:Set(object,'Thickness',1)
             if kind=='Circle' then pcall(function() self:Set(object,'NumSides',64) end) end
-        else self:Set(object,'Font',2); self:Set(object,'Center',false); self:Set(object,'Outline',false) end
+        elseif kind=='Text' then self:Set(object,'Font',Theme.font); self:Set(object,'Center',false); self:Set(object,'Outline',false) end
     end
     self:Set(object,'ZIndex',z or 10)
     return object
@@ -78,6 +80,21 @@ function Renderer:Rect(r, color, clip, z, opacity)
     -- Synapse Drawing Transparency is opacity: 1=opaque, 0=invisible.
     self:Set(d,'Transparency',self.alpha*(opacity or 1))
     self:Set(d,'Visible',true)
+end
+function Renderer:Border(r,color,clip,z,width)
+    width=math.min(width or 1,r.w/2,r.h/2)
+    self:Rect(Util.rect(r.x,r.y,r.w,width),color,clip,z)
+    self:Rect(Util.rect(r.x,r.y+r.h-width,r.w,width),color,clip,z)
+    self:Rect(Util.rect(r.x,r.y+width,width,r.h-width*2),color,clip,z)
+    self:Rect(Util.rect(r.x+r.w-width,r.y+width,width,r.h-width*2),color,clip,z)
+end
+function Renderer:Line(x1,y1,x2,y2,color,clip,z,width)
+    local bounds=Util.rect(math.min(x1,x2),math.min(y1,y2),math.max(1,math.abs(x2-x1)),math.max(1,math.abs(y2-y1)))
+    if not Util.contains(bounds,clip) then return end
+    local d=self:Acquire('Line',z)
+    self:Set(d,'From',Vector2.new(x1,y1)); self:Set(d,'To',Vector2.new(x2,y2))
+    self:Set(d,'Thickness',width or 1); self:Set(d,'Color',color)
+    self:Set(d,'Transparency',self.alpha); self:Set(d,'Visible',true)
 end
 function Renderer:Round(r, radius, color, clip, z, opacity)
     radius=math.max(0,math.min(radius,r.w/2,r.h/2))
@@ -101,28 +118,30 @@ function Renderer:Round(r, radius, color, clip, z, opacity)
         y=y+h
     end
 end
-function Renderer:Width(text, size)
-    return self:Bounds(text,size).X
+function Renderer:Width(text, size, font)
+    return self:Bounds(text,size,font).X
 end
-function Renderer:Fit(text, width, size)
-    if self:Width(text,size)<=width then return text end
+function Renderer:Fit(text, width, size, font)
+    if self:Width(text,size,font)<=width then return text end
     local suffix='...'
-    if self:Width(suffix,size)>width then return '' end
+    if self:Width(suffix,size,font)>width then return '' end
     local lo,hi=0,utf8.len(text)
     while lo<hi do
         local mid=math.ceil((lo+hi)/2)
-        if self:Width(Util.prefix(text,mid)..suffix,size)<=width then lo=mid else hi=mid-1 end
+        if self:Width(Util.prefix(text,mid)..suffix,size,font)<=width then lo=mid else hi=mid-1 end
     end
     return Util.prefix(text,lo)..suffix
 end
-function Renderer:Text(text, x, y, color, width, clip, z, size)
-    size=size or 15
-    text=self:Fit(text,math.max(0,width),size)
+function Renderer:Text(text, x, y, color, width, clip, z, size, font)
+    size=size or Theme.bodySize
+    font=font or Theme.font
+    text=self:Fit(text,math.max(0,width),size,font)
     if text=='' then return end
-    local bounds=self:Bounds(text,size)
+    local bounds=self:Bounds(text,size,font)
     local r=Util.rect(x,y,bounds.X,bounds.Y)
     if not Util.contains(r,clip) then return end
     local d=self:Acquire('Text',z)
+    self:Set(d,'Font',font)
     self:Set(d,'Position',Vector2.new(x,y)); self:Set(d,'Size',size)
     self:Set(d,'Text',text); self:Set(d,'Color',color)
     self:Set(d,'Transparency',self.alpha); self:Set(d,'Visible',true)
@@ -135,6 +154,6 @@ end
 function Renderer:Destroy()
     if self.measure then self.measure:Remove(); self.measure=nil end
     for _,pool in pairs(self.pools) do for _,d in ipairs(pool) do d:Remove() end end
-    self.pools={Square={},Text={},Circle={}}
+    self.pools={Square={},Text={},Circle={},Line={}}
 end
 return Renderer

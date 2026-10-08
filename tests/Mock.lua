@@ -46,7 +46,7 @@ for word in ('None Unknown Escape Return KeypadEnter Backspace Delete RightShift
 for _,name in ipairs({'Keyboard','MouseButton1','MouseButton2','MouseMovement','MouseWheel'}) do Enum.UserInputType[name]={Name=name} end
 Drawing={}
 function Drawing.new(kind)
-    assert(kind=='Square' or kind=='Text' or kind=='Circle')
+    assert(kind=='Square' or kind=='Text' or kind=='Circle' or kind=='Line')
     local object={_props={Visible=false,Text='',Size=15},_kind=kind,Removed=false}
     function object:Remove() assert(not self.Removed,'Double Remove'); self.Removed=true end
     setmetatable(object,{__index=function(o,k)

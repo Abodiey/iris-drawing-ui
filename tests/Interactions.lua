@@ -413,7 +413,7 @@ test('settled window text and controls remain opaque under the Synapse Drawing c
     end
     assert(title and title.Transparency==1,'Settled title is invisible on Synapse Drawing')
     assert(toggleText and toggleText.Transparency==1,'Settled control text is invisible on Synapse Drawing')
-    assert(background and math.abs(background.Transparency-.97)<.00001,'Background opacity was inverted')
+    assert(background and math.abs(background.Transparency-1)<.00001,'Background opacity was inverted')
 end)
 test('Synapse hide animation decreases Drawing opacity',function()
     window:SetVisible(false); Mock.tick(1)
@@ -533,6 +533,58 @@ test('viewport ratio fallback tracks largest observed height',function()
     d:SetViewport(Vector2.new(1000,1100)); equal(d.offsetY,0)
     d:SetViewport(Vector2.new(0,0)); equal(d.offsetY,0)
     isolated:Destroy()
+end)
+
+test('Windows 10 caption buttons, rectangular fields, checkbox options and focus styling',function()
+    window:SetVisible(true); window:SetMinimized(false); rt:ClosePopup(); Mock.tick(60)
+    local minimize=hit(rt,window,'minimize')
+    local close=hit(rt,window,'close')
+    equal(minimize.rect.w,46); equal(close.rect.w,46)
+    local font=rt.renderer.measure.Font
+    assert(type(font)=='number')
+    clickHit(rt,text,'textbox'); Mock.tick(1)
+    assert(rt.edit==text)
+    -- Caret is near black on a white field instead of white on white.
+    local caretFound=false
+    for _,d in ipairs(Mock.drawings) do
+        if d._kind=='Square' and d.Visible and d.Color==Color3.fromRGB(32,32,32) and d.Size.X==1 and d.Size.Y==18 then caretFound=true end
+    end
+    assert(caretFound)
+    rt:Blur(false)
+    clickHit(rt,multi,'dropdown'); Mock.tick(20)
+    local checkboxFound=false
+    for _,d in ipairs(Mock.drawings) do
+        if d._kind=='Square' and d.Visible and d.Size.X==16 and d.Size.Y==16 then checkboxFound=true end
+    end
+    assert(checkboxFound)
+    rt:ClosePopup(); Mock.tick(20)
+end)
+
+test('hover and popup motion settle without per-control connections',function()
+    local before=Mock.liveConnections()
+    clickHit(rt,dropdown,'dropdown')
+    assert(rt.popup and rt.popup.alpha==0)
+    Mock.tick(12); equal(rt.popup.alpha,1)
+    rt:ClosePopup()
+    assert(not rt.popup and rt.retiringPopup)
+    Mock.tick(12); assert(not rt.retiringPopup)
+    local c=hit(rt,toggle,'toggle')
+    Mock.move(c.rect.x+c.rect.w/2,c.rect.y+c.rect.h/2)
+    Mock.tick(12)
+    equal(rt:Visual(toggle,'toggle'),1)
+    Mock.move(0,0); Mock.tick(12)
+    equal(rt:Visual(toggle,'toggle'),0)
+    assert(next(rt.visualAnimations)==nil)
+    equal(Mock.liveConnections(),before)
+end)
+
+test('Drawing line icons share the existing viewport Y correction',function()
+    local d=rt.renderer
+    d:SetViewport(Vector2.new(1280,1001))
+    d:Begin(1); d:Line(10,20,15,25,Color3.new(1,1,1)); d:Finish()
+    local line=d.pools.Line[1]
+    equal(line.From.Y,43); equal(line.To.Y,48)
+    d:SetViewport(rt:Viewport()); rt:Dirty(); Mock.tick(1)
 end)
 
 test('Destroy idempotent cleanup and fresh reload',function()

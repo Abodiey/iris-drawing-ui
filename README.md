@@ -1,6 +1,6 @@
 # Iris Drawing
 
-A standalone PC Roblox UI library with a restrained iOS-inspired light design.
+A standalone PC Roblox UI library with a Windows 10-era Fluent light design.
 Every visible element uses `Drawing.new`. One completely transparent, offscreen
 CoreGui TextBox supplies native keyboard editing, selection, and clipboard input.
 There is no gameplay code and no dependency on JJS or any other project.
@@ -9,7 +9,7 @@ There is no gameplay code and no dependency on JJS or any other project.
 
 ```lua
 local UI = loadstring(game:HttpGet(
-    'https://raw.githubusercontent.com/Abodiey/iris-drawing-ui/main/dist/Iris.lua?v=1.0.14'
+    'https://raw.githubusercontent.com/Abodiey/iris-drawing-ui/main/dist/Iris.lua?v=1.0.15'
 ))()
 local Window = UI:CreateWindow({Name = 'Example'})
 local Section = Window:AddSection('General')
@@ -17,7 +17,7 @@ local Section = Window:AddSection('General')
 
 `dist/Iris.lua` bundles all modules; loading it performs no further HTTP requests.
 Use a commit SHA in place of `main` to pin a specific revision.
-Version 1.0.14 converts Drawing coordinates through the invisible ScreenGui’s
+The renderer converts hitbox coordinates through the invisible ScreenGui’s
 actual `AbsolutePosition`, including when its origin changes. Input uses raw
 `UserInputService:GetMouseLocation()` and absolute GUI hitbox bounds.
 Version 1.0.10 adds the light appearance, smooth native circle knobs, and scoped
@@ -26,7 +26,7 @@ The complete [example](examples/Example.lua) demonstrates every control and conf
 
 **Runtime:** PC keyboard/mouse, Roblox client services, CoreGui input access,
 and a [Synapse-compatible Drawing API](https://synapsexdocs.github.io/libraries/drawing/)
-supporting Square/Text/Circle, `TextBounds`, `ZIndex`, `Font = 2`, `NumSides`,
+supporting Square/Text/Circle/Line, `TextBounds`, `ZIndex`, numeric `Font` IDs, `NumSides`,
 `Remove()`, and `Transparency` where 1 is opaque and 0 is fully transparent.
 Pointer positions come only from `UserInputService:GetMouseLocation()`.
 Widget hit regions are invisible Frames under a ScreenGui. Their local positions
@@ -229,3 +229,13 @@ Rayfield, Linoria, or Apple's assets.
 Mouse input uses only raw `UserInputService:GetMouseLocation()`; hit regions keep their unshifted GUI coordinates. The renderer adds a Y translation to every Drawing position using the common-monitor-ratio heuristic: choose the closest candidate `viewportWidth / ratio` at or above the current viewport height (gap under 80 pixels), then subtract the viewport height. If no ratio matches, use the greatest viewport height observed by that renderer. The calculation refreshes on viewport changes; no native cursor replacement, GUI-inset queries, or secondary mouse sources are used.
 
 On the tested 1280×1024 monitor this produces +23 for a 1280×1001 windowed viewport and 0 for fullscreen. This is an inference for the affected Drawing backend, not a measured OS title-bar size. Other monitor ratios, freely resized windows, and backends already using client coordinates can produce incorrect corrections. The fallback requires having observed a taller viewport; it cannot discover an unknown height by itself. X is not adjusted.
+
+## Windows 10 light appearance
+
+The internal theme in `src/Internal/Theme.lua` defines the palette, font choices, and brief motion timings. The window has square corners, a flat caption bar and Windows-style caption buttons; content uses plain Settings-style rows with rectangular bordered fields. Multi-select options use square checkboxes. Toggle tracks and slider thumbs retain native rounded geometry. Popups and notifications use opaque surfaces and thin borders; the standard Drawing API cannot reproduce desktop backdrop blur.
+
+Text uses a named Segoe UI / Segoe UI Semibold Drawing font if the backend exposes it through `Drawing.Fonts`; otherwise it uses the available proportional Plex font (ID 2 fallback). The standard Drawing API exposes neither arbitrary system font names nor font weights, so unsupported semibold falls back to regular weight with size hierarchy. No duplicate-text fake bold is used.
+
+Hover transitions take 100 ms, control transitions 150 ms, and popup fades 160 ms. They share the central update system and stop when settled. Retiring popups fade visually without retaining input ownership. Input, flags/configs, the public API and viewport-origin correction are unchanged. Disabled theme tokens are available internally; no disabled-control API or separate checkbox control is added.
+
+Design references: Microsoft's [Windows 10 UWP design guidelines](https://download.microsoft.com/download/2/4/A/24A81A29-77CF-4AA5-967E-64E42554F21B/UWP%20app%20design%20guidelines%20v1509.pdf) and [Windows title-bar guidance](https://learn.microsoft.com/en-us/windows/apps/design/basics/titlebar-design). This styling deliberately uses the requested square Windows 10 geometry rather than the later rounded Windows 11 defaults.
