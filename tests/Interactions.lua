@@ -425,21 +425,19 @@ test('notification text stays visible after its fade-in completes',function()
     assert(title and title.Transparency>.999,'Notification became transparent after fading in')
     Mock.tick(300); equal(#rt.notifications,0)
 end)
-test('Madium pointer mapping applies half the vertical inset',function()
+test('window-relative Mouse coordinates track decoration and fullscreen changes',function()
     window.Scroll=0; rt:Dirty(); Mock.tick(60)
     local row=hit(rt,toggle,'toggle').rect
-    Mock.inset=Vector2.new(0,36)
     local value=toggle.Value
-    Mock.mouse=Vector2.new(row.x+20,row.y+20+18)
-    Mock.click(row.x+20,row.y+20+18)
+    -- Simulate the OS screen origin changing with window decorations while the
+    -- Roblox client-relative pointer remains over the same Drawing control.
+    Mock.clickCoordinates(row.x+20,row.y+20-24,row.x+20,row.y+20)
     equal(toggle.Value,not value)
-    equal(rt.pointer.Y,row.y+20)
-    local action=Mock.actions[rt.scrollAction]
-    equal(action.fn(),Enum.ContextActionResult.Sink)
-    Mock.inset=Vector2.new(4,58)
-    Mock.move(row.x+20,row.y+20+29)
     equal(rt.pointer.X,row.x+20); equal(rt.pointer.Y,row.y+20)
-    Mock.inset=Vector2.new(0,0)
+    -- Fullscreen removes the decoration offset; the same client coordinate works.
+    Mock.clickCoordinates(row.x+20,row.y+20,row.x+20,row.y+20)
+    equal(toggle.Value,value)
+    equal(rt.pointer.Y,row.y+20)
 end)
 
 test('wheel capture is scoped and unbound independently on destroy',function()

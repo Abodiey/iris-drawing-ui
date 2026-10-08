@@ -89,3 +89,7 @@ Version 1.0.7 applies half the current vertical GUI inset. Regression checks cov
 changing inset values and confirm raw mouse positions map to the centered target.
 This factor is an empirically chosen midpoint from user feedback; verify alignment
 in Madium because inset behavior can vary by executor configuration.
+
+Version 1.0.8 uses client-relative PlayerMouse X/Y rather than applying a guessed
+inset offset to screen-relative GetMouseLocation. A regression simulates a 24 px
+window decoration offset and fullscreen, confirming hit tests use client coords.

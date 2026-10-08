@@ -6,7 +6,7 @@ function Runtime.new(ui)
     local self=setmetatable({ui=ui,connections={},hits={},dirty=true,alpha=0,height=52,notifications={},held={},animations={},pointer=Vector2.new(0,0)},Runtime)
     local ok,message=pcall(function()
         self.input=game:GetService('UserInputService')
-        self.guiService=game:GetService('GuiService')
+        self.mouse=game:GetService('Players').LocalPlayer:GetMouse()
         self.actionService=game:GetService('ContextActionService')
         self.renderService=game:GetService('RunService')
         self.workspace=game:GetService('Workspace')
@@ -82,11 +82,9 @@ end
 function Runtime:Connect(signal,fn) table.insert(self.connections,signal:Connect(fn)) end
 function Runtime:Dirty() self.dirty=true end
 function Runtime:MousePosition()
-    -- Madium's cursor and Drawing origins differ slightly. Half the dynamic
-    -- top inset corrects the residual offset without the full-inset overshoot.
-    local mouse=self.input:GetMouseLocation()
-    local inset=self.guiService:GetGuiInset()
-    return Vector2.new(mouse.X,mouse.Y-inset.Y*.5)
+    -- PlayerMouse reports coordinates relative to the Roblox client viewport.
+    -- Drawing is attached to that window, while GetMouseLocation is screen-relative.
+    return Vector2.new(self.mouse.X,self.mouse.Y)
 end
 function Runtime:OwnsPointer(p)
     local w=self.window

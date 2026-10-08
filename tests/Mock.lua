@@ -16,7 +16,7 @@ local function signal()
 end
 Vector2={new=function(x,y) return setmetatable({X=x,Y=y},{__type='Vector2'}) end}
 Mock.mouse=Vector2.new(0,0)
-Mock.inset=Vector2.new(0,0)
+Mock.clientMouse=Vector2.new(0,0)
 UDim2={fromOffset=function(x,y) return {X=x,Y=y} end}
 local colorMethods={}
 function colorMethods:ToHSV()
@@ -67,9 +67,10 @@ function cas:BindActionAtPriority(name,fn,touch,priority,input)
     Mock.actions[name]={fn=fn,priority=priority,input=input}
 end
 function cas:UnbindAction(name) Mock.actions[name]=nil end
-local guiService={}
-function guiService:GetGuiInset() return Mock.inset,Vector2.new(0,0) end
-local services={GuiService=guiService,UserInputService=uis,GuiService=guiService,ContextActionService=cas,RunService=run,Workspace=workspace,CoreGui=core}
+local legacyMouse=setmetatable({}, {__index=function(_,key) if key=='X' then return Mock.clientMouse.X elseif key=='Y' then return Mock.clientMouse.Y end end})
+local localPlayer={GetMouse=function() return legacyMouse end}
+local players={LocalPlayer=localPlayer}
+local services={Players=players,UserInputService=uis,ContextActionService=cas,RunService=run,Workspace=workspace,CoreGui=core}
 game={GetService=function(_,name) assert(services[name],name); return services[name] end}
 Instance={}
 function Instance.new(kind)
@@ -99,10 +100,16 @@ function Mock.tick(count)
     for _=1,count or 1 do Mock.time=Mock.time+1/60; run.RenderStepped:Fire(1/60) end
 end
 function Mock.move(x,y)
-    Mock.mouse=Vector2.new(x,y); uis.InputChanged:Fire({UserInputType=Enum.UserInputType.MouseMovement})
+    Mock.mouse=Vector2.new(x,y); Mock.clientMouse=Vector2.new(x,y); uis.InputChanged:Fire({UserInputType=Enum.UserInputType.MouseMovement})
 end
 function Mock.click(x,y)
     Mock.move(x,y); uis.InputBegan:Fire({UserInputType=Enum.UserInputType.MouseButton1},false)
+    uis.InputEnded:Fire({UserInputType=Enum.UserInputType.MouseButton1})
+end
+function Mock.clickCoordinates(screenX,screenY,clientX,clientY)
+    Mock.mouse=Vector2.new(screenX,screenY); Mock.clientMouse=Vector2.new(clientX,clientY)
+    uis.InputChanged:Fire({UserInputType=Enum.UserInputType.MouseMovement})
+    uis.InputBegan:Fire({UserInputType=Enum.UserInputType.MouseButton1},false)
     uis.InputEnded:Fire({UserInputType=Enum.UserInputType.MouseButton1})
 end
 function Mock.press(key,processed)
