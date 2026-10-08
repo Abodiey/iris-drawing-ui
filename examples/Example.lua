@@ -3,13 +3,13 @@ local previous = rawget(_G, 'IrisDrawingExample')
 if previous then previous:Destroy() end
 
 local UI = loadstring(game:HttpGet(
-    'https://raw.githubusercontent.com/Abodiey/iris-drawing-ui/main/dist/Iris.lua?v=1.0.17'
+    'https://raw.githubusercontent.com/Abodiey/iris-drawing-ui/main/dist/Iris.lua?v=1.0.18'
 ))()
 _G.IrisDrawingExample = UI
 
 local Window = UI:CreateWindow({
     Name = 'Iris Drawing',
-    Size = Vector2.new(480, 560),
+    Size = Vector2.new(1024, 800),
     ToggleKey = 'RightShift',
 })
 local General = Window:AddSection('General')

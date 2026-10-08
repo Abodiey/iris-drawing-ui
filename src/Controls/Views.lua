@@ -14,7 +14,7 @@ local function fieldBox(rt,c,role,r,clip,focused,base)
     local d=rt.renderer
     local fill=role=='textbox' and Theme.field or surface(rt,c,role,base or Theme.field)
     d:Rect(r,fill,clip,12)
-    d:Border(r,focused and Theme.accent or Theme.Mix(Theme.controlBorder,Theme.borderHover,rt:Visual(c,role)),clip,13,focused and 2 or 1)
+    d:Border(r,focused and Theme.accent or Theme.Mix(Theme.controlBorder,Theme.borderHover,rt:Visual(c,role)),clip,13,role=='button' and 0 or 2)
 end
 function Views.Field(r)
     local width=math.min(Theme.metrics.fieldWidth,r.w)
@@ -29,7 +29,7 @@ function Views.Control(rt,c,r,clip)
         if c.Name~='' then d:Text(c.Name,x,y+5,t.muted,w,clip,12,t.bodySize,t.headingFont) end
         d:Rect(Util.rect(x,y+24,w,1),t.line,clip,11); return
     end
-    if kind=='Label' then d:Text(c.Name,x,y+4,t.muted,w,clip,12,t.captionSize); return end
+    if kind=='Label' then d:Text(c.Name,x,y+4,t.muted,w,clip,12,t.bodySize); return end
     if kind=='Button' then
         local button=Util.rect(x,y+4,math.min(w,math.max(88,math.ceil(d:Width(c.Name,t.bodySize))+24)),t.metrics.fieldHeight)
         fieldBox(rt,c,'button',button,clip,false,t.button)
@@ -55,15 +55,15 @@ function Views.Control(rt,c,r,clip)
     local field=c._anchor or Views.Field(r)
     d:Text(c.Name,x,y+3,t.text,w,clip,12)
     if kind=='Toggle' then
-        local switch=Util.rect(x,y+t.metrics.controlTop+2,40,20)
+        local switch=Util.rect(x,y+t.metrics.controlTop+2,44,20)
         d:Text(c.Value and 'On' or 'Off',switch.x+52,switch.y+2,t.text,40,clip,12,t.bodySize)
         local ratio=c._visual or (c.Value and 1 or 0)
         local amount=rt:Visual(c,'toggle')
         local on=blend(t.accent,t.accentHover,amount)
         if rt.pressedHit and rt.pressedHit.owner==c then on=t.accentHover end
-        d:Round(switch,10,c.Value and on or blend(t.muted,t.text,amount),clip,12)
-        if not c.Value then d:Round(Util.rect(switch.x+2,switch.y+2,36,16),8,t.white,clip,13) end
-        d:Round(Util.rect(switch.x+4+20*ratio,switch.y+4,12,12),6,c.Value and t.white or t.muted,clip,14)
+        d:Round(switch,10,c.Value and on or blend(t.switchBorder,t.text,amount),clip,12)
+        if not c.Value then d:Round(Util.rect(switch.x+2,switch.y+2,40,16),8,t.white,clip,13) end
+        d:Round(Util.rect(switch.x+4+24*ratio,switch.y+4,12,12),6,c.Value and t.white or t.switchBorder,clip,14)
         rt:Hit(switch,c,'toggle',clip)
     elseif kind=='Dropdown' or kind=='MultiDropdown' then
         local open=rt.popup and rt.popup.control==c

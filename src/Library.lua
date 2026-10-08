@@ -1,7 +1,7 @@
 local Util=require('Internal.Util')
 local Runtime=require('Internal.Runtime')
 local Controls=require('Controls.Model')
-local UI={Flags={},_flags={},_controls={},_destroyed=false,Version='1.0.17'}
+local UI={Flags={},_flags={},_controls={},_destroyed=false,Version='1.0.18'}
 local Window={}; Window.__index=Window
 local Section={}; Section.__index=Section
 local function options(opts,allowed)
@@ -20,7 +20,7 @@ function UI:CreateWindow(opts)
     Util.live(self); options(opts,{Name=true,Size=true,Position=true,ToggleKey=true})
     assert(not self._window,'Version 1 supports one window per UI instance')
     local name=Util.clean(opts.Name or 'Iris',256)
-    local size=vector(opts.Size or Vector2.new(480,560),'Size')
+    local size=vector(opts.Size or Vector2.new(960,720),'Size')
     assert(size.X>=320 and size.Y>=180,'Size minimum is 320 x 180')
     local toggle=opts.ToggleKey or 'RightShift'
     assert(type(toggle)=='string' and (toggle=='None' or Enum.KeyCode[toggle]) and toggle~='Unknown' and toggle~='Escape','ToggleKey must be a KeyCode name or None')

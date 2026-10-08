@@ -9,7 +9,7 @@ There is no gameplay code and no dependency on JJS or any other project.
 
 ```lua
 local UI = loadstring(game:HttpGet(
-    'https://raw.githubusercontent.com/Abodiey/iris-drawing-ui/main/dist/Iris.lua?v=1.0.17'
+    'https://raw.githubusercontent.com/Abodiey/iris-drawing-ui/main/dist/Iris.lua?v=1.0.18'
 ))()
 local Window = UI:CreateWindow({Name = 'Example'})
 local Section = Window:AddSection('General')
@@ -17,7 +17,7 @@ local Section = Window:AddSection('General')
 
 `dist/Iris.lua` bundles all modules; loading it performs no further HTTP requests.
 Use a commit SHA in place of `main` to pin a specific revision.
-The renderer converts hitbox coordinates through the invisible ScreenGuiâ€™s
+The renderer converts hitbox coordinates through the invisible ScreenGuiأ¢â‚¬â„¢s
 actual `AbsolutePosition`, including when its origin changes. Input uses raw
 `UserInputService:GetMouseLocation()` and absolute GUI hitbox bounds.
 Version 1.0.10 adds the light appearance, smooth native circle knobs, and scoped
@@ -40,24 +40,34 @@ Native focus and camera input consumption still need verification in the executo
 
 ## Visual design
 
-Version 1.0.17 follows Windows 10 Settings placement: labels above left-aligned
-fields and switches, instead of a two-column form. Fields are 240 pixels wide
-(or shrink to the available width) and 32 pixels tall. Setting blocks are 64
-pixels tall, switches 56 pixels, and informational rows 22 pixels. Sliders use
-a restrained 320-pixel width. Section headings remain 20 pixels; body text is
-14 pixels and metadata 12 pixels. Rectangular fields have thin neutral borders
-and a blue focus outline. Toggle state text sits beside its capsule.
+Version 1.0.18 uses the Windows 10 Settings shell: a white title bar, back
+button, minimize/maximize/close controls, neutral left navigation material,
+blue active marker, Home, and a working Find a setting field. The first section
+is the 28-pixel page heading; later sections use plain 20-pixel headings without
+decorative rules. Fields are 280 x 32 pixels, switches 44 x 20 pixels, body text and informational labels
+14 pixels, and title-bar captions 12 pixels. The fallback Drawing font is scaled to bring
+its metrics closer to Segoe UI.
 
-Click and hover targets match the visible controls in both X and Y; blank row
-space and labels do not open dropdowns, toggle switches, or capture text/key input.
-Sliders accept initial clicks only on their track/thumb area; dragging still
-continues outside it until release.
+Wide windows (900 pixels or more) have a 320-pixel navigation pane.
+Widths of 720-899 use 256 pixels, and 600-719 use 200 pixels. Narrower windows
+keep the single content column. Section shortcuts scroll the existing page;
+they do not hide controls or change flags. Search matches section and control
+names, and clicking a result scrolls to the matching setting. Home returns to
+the top; Back restores prior scroll positions. Navigation scrolls independently.
+
+Click and hover targets match visible controls in both X and Y; blank row
+space and labels do not open dropdowns, toggle switches, or capture input.
+Sliders accept initial clicks only on their track/thumb area; dragging continues
+outside it until release. All existing methods, configs and callback semantics
+remain unchanged.
 
 Colors, typography, spacing and motion are centralized in
-`src/Internal/Theme.lua`. Segoe UI is selected only if the Drawing backend
-provides it; otherwise the closest supported numeric font ID (Plex/UI) is used.
-Drawing cannot synthesize a semibold font where the backend offers none.
-The existing APIs, flags, configs and viewport origin handling are unchanged.
+`src/Internal/Theme.lua`; `src/Internal/Shell.lua` draws navigation.
+Segoe UI is used only when the backend exposes it. Madium exposes UI, System,
+Plex and Monospace, so its current release uses the closest fallback. Drawing
+has no native backdrop blur or ClearType text rasterizer: the sidebar uses an
+opaque neutral material. This is a faithful layout and control adaptation,
+not a pixel-identical native Windows compositor.
 
 Design references: Microsoft's [Windows 10 UWP guidelines](https://download.microsoft.com/download/2/4/A/24A81A29-77CF-4AA5-967E-64E42554F21B/UWP%20app%20design%20guidelines%20v1509.pdf)
 and [compact control sizing](https://learn.microsoft.com/en-us/windows/apps/develop/ui/controls/compact-sizing).
@@ -67,7 +77,7 @@ and [compact control sizing](https://learn.microsoft.com/en-us/windows/apps/deve
 ```lua
 local Window = UI:CreateWindow({
     Name = 'Example',
-    Size = Vector2.new(480, 560),      -- optional; minimum requested size 320 x 180
+    Size = Vector2.new(960, 720),      -- optional; minimum requested size 320 x 180
     Position = Vector2.new(100, 80),  -- optional; otherwise centered
     ToggleKey = 'RightShift',        -- KeyCode name, or 'None' to disable
 })
@@ -79,7 +89,8 @@ Window:SetSize(Vector2.new(520, 620))
 
 Version 1 supports one window per UI instance and any number of sections.
 Sections lay out controls vertically. Drag the title bar, scroll over content,
-or drag the scrollbar. The title-bar minimize button minimizes/restores; the close button
+or drag the scrollbar. Maximize toggles viewport size and restores the original
+size and position. The title-bar minimize button minimizes/restores; the close button
 hides. RightShift or `SetVisible(true)` reopens the window. Size and position
 are clamped to the viewport; a smaller viewport can override the minimum
 requested size. Controls stop accepting pointer input during hide/minimize.
@@ -128,7 +139,7 @@ Section:AddSeparator({Name = 'Advanced'})  -- Name may be omitted for a plain li
 | Slider | Finite number. Required `Min` and `Max` with `Max > Min`; positive `Step` defaults to 1. Values clamp and snap relative to Min. Default Min. |
 | Dropdown | Exact option string. Unique nonempty strings in a dense `Options` array, up to 500. Defaults to the first option; an empty list uses `''`. |
 | MultiDropdown | Array of option strings, default `{}`. Rejects unknown/duplicate selections and stores them in Options order. |
-| Textbox | Single-line UTF-8 string, default `''`. MaxLength is 1â€“4096 codepoints, default 256. Control characters become spaces. Enter, outside click, scrolling, hiding, or native focus loss commits; Escape cancels. Mouse and keyboard selection are supported. |
+| Textbox | Single-line UTF-8 string, default `''`. MaxLength is 1أ¢â‚¬â€œ4096 codepoints, default 256. Control characters become spaces. Enter, outside click, scrolling, hiding, or native focus loss commits; Escape cancels. Mouse and keyboard selection are supported. |
 | Keybind | KeyCode name string or `'None'`, default `'None'`. `OnChanged(keyName)` reports binding changes. `Callback(true/false)` reports press/release, never binding changes. Click to capture; Escape cancels; Backspace/Delete clears. The window ToggleKey is reserved. Typing in any native TextBox suppresses actions. |
 | ColorPicker | Color3, default iOS blue. Callback/GetValue return Color3. The popup uses saturation/value and hue strips; config uses RGB arrays. No alpha channel. |
 | Label | Display only; `SetText(string)`. No Flag, Default, or Callback. |
@@ -252,7 +263,7 @@ Rayfield, Linoria, or Apple's assets.
 
 Mouse input uses only raw `UserInputService:GetMouseLocation()`; hit regions keep their unshifted GUI coordinates. The renderer adds a Y translation to every Drawing position using the common-monitor-ratio heuristic: choose the closest candidate `viewportWidth / ratio` at or above the current viewport height (gap under 80 pixels), then subtract the viewport height. If no ratio matches, use the greatest viewport height observed by that renderer. The calculation refreshes on viewport changes; no native cursor replacement, GUI-inset queries, or secondary mouse sources are used.
 
-On the tested 1280أ—1024 monitor this produces +23 for a 1280أ—1001 windowed viewport and 0 for fullscreen. This is an inference for the affected Drawing backend, not a measured OS title-bar size. Other monitor ratios, freely resized windows, and backends already using client coordinates can produce incorrect corrections. The fallback requires having observed a taller viewport; it cannot discover an unknown height by itself. X is not adjusted.
+On the tested 1280ط£â€”1024 monitor this produces +23 for a 1280ط£â€”1001 windowed viewport and 0 for fullscreen. This is an inference for the affected Drawing backend, not a measured OS title-bar size. Other monitor ratios, freely resized windows, and backends already using client coordinates can produce incorrect corrections. The fallback requires having observed a taller viewport; it cannot discover an unknown height by itself. X is not adjusted.
 
 ## Windows 10 light appearance
 

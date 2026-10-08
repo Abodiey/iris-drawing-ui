@@ -42,9 +42,13 @@ end
 function Renderer:Get(object,property)
     return object[property]
 end
+function Renderer:FontSize(size,font)
+    local scale=(font==nil or font==Theme.font) and Theme.fontScale or 1
+    return math.floor(size*scale+.5)
+end
 function Renderer:Bounds(text,size,font)
     self:Set(self.measure,'Font',font or Theme.font)
-    self:Set(self.measure,'Size',size or 15)
+    self:Set(self.measure,'Size',self:FontSize(size or Theme.bodySize,font))
     self:Set(self.measure,'Text',text)
     local bounds=self:Get(self.measure,'TextBounds')
     assert(typeof(bounds)=='Vector2','Drawing TextBounds must return Vector2')
@@ -142,7 +146,7 @@ function Renderer:Text(text, x, y, color, width, clip, z, size, font)
     if not Util.contains(r,clip) then return end
     local d=self:Acquire('Text',z)
     self:Set(d,'Font',font)
-    self:Set(d,'Position',Vector2.new(x,y)); self:Set(d,'Size',size)
+    self:Set(d,'Position',Vector2.new(x,y)); self:Set(d,'Size',self:FontSize(size,font))
     self:Set(d,'Text',text); self:Set(d,'Color',color)
     self:Set(d,'Transparency',self.alpha); self:Set(d,'Visible',true)
 end

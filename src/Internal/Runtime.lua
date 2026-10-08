@@ -2,6 +2,7 @@ local Util=require('Internal.Util')
 local Renderer=require('Internal.Renderer')
 local Views=require('Controls.Views')
 local Theme=require('Internal.Theme')
+local Shell=require('Internal.Shell')
 local Runtime={}; Runtime.__index=Runtime
 function Runtime.new(ui)
     local self=setmetatable({ui=ui,connections={},hits={},hitFrames={},hitCount=0,dirty=true,alpha=0,height=Theme.titleHeight,visualStates={},visualAnimations={},notifications={},held={},animations={},pointer=Vector2.new(0,0)},Runtime)
@@ -49,6 +50,13 @@ function Runtime.new(ui)
         end)
         self:StartWatchdog()
         self.pointer=self:MousePosition()
+        local runtime=self
+        self.search={Value='',MaxLength=128}
+        function self.search:SetValue(value)
+            self.Value=Util.clean(value,128); runtime.navigationScroll=0; runtime:Dirty()
+        end
+        self.history={}
+        self.sectionOffsets={}; self.controlOffsets={}
     end)
     if not ok then self:Destroy(); error('Iris Drawing initialization failed: '..tostring(message)) end
     return self
@@ -307,8 +315,20 @@ function Runtime:ClampWindow()
     w.Size=Vector2.new(math.min(w.RequestedSize.X,math.max(180,view.X-16)),math.min(w.RequestedSize.Y,math.max(100,view.Y-16)))
     w.Position=Vector2.new(Util.clamp(w.Position.X,0,math.max(0,view.X-w.Size.X)),Util.clamp(w.Position.Y,0,math.max(0,view.Y-(w.Minimized and Theme.titleHeight or w.Size.Y))))
 end
+function Runtime:Navigate(offset)
+    local w=self.window
+    self:CancelInteraction(true)
+    if self.ui._destroyed then return end
+    offset=Util.clamp(offset or 0,0,w.MaxScroll)
+    if offset~=w.Scroll then
+        if #self.history==32 then table.remove(self.history,1) end
+        table.insert(self.history,w.Scroll)
+        w.Scroll=offset
+    end
+    self:Dirty()
+end
 function Runtime:Draw()
-    self.dirty=false; self.hitCount=0
+    self.dirty=false; self.hitCount=0; self.navigationClip=nil
     self.hitOrigin=self.gui.AbsolutePosition
     local d,t,w=self.renderer,Views.Theme,self.window
     local metrics=t.metrics
@@ -320,16 +340,24 @@ function Runtime:Draw()
         local r=Util.rect(x,y,width,height)
         d:Rect(r,t.bg,nil,2)
         d:Border(r,t.line,nil,3)
-        d:Rect(Util.rect(x+1,y+1,width-2,Theme.titleHeight-1),t.surface,r,3)
-        d:Rect(Util.rect(x+1,y+Theme.titleHeight,width-2,1),t.line,r,3)
-        d:Text(w.Name,x+12,y+9,t.text,width-116,r,4,t.captionSize)
+        d:Rect(Util.rect(x+1,y+1,width-2,Theme.titleHeight-1),t.white,r,3)
+        d:Text(w.Name,x+62,y+9,t.text,width-210,r,4,t.captionSize)
         local close=Util.rect(x+width-47,y+1,46,Theme.titleHeight-1)
-        local minimize=Util.rect(x+width-93,y+1,46,Theme.titleHeight-1)
+        local maximize=Util.rect(x+width-93,y+1,46,Theme.titleHeight-1)
+        local minimize=Util.rect(x+width-139,y+1,46,Theme.titleHeight-1)
         local closeAmount=self:Visual(w,'close')
         local pressed=self.pressedHit
         local closePressed=pressed and pressed.owner==w and pressed.role=='close'
-        d:Rect(close,closePressed and t.closePressed or Theme.Mix(t.surface,t.closeHover,closeAmount),r,4)
-        d:Rect(minimize,pressed and pressed.owner==w and pressed.role=='minimize' and t.pressed or Theme.Mix(t.surface,t.hover,self:Visual(w,'minimize')),r,4)
+        d:Rect(close,closePressed and t.closePressed or Theme.Mix(t.white,t.closeHover,closeAmount),r,4)
+        d:Rect(minimize,pressed and pressed.owner==w and pressed.role=='minimize' and t.pressed or Theme.Mix(t.white,t.hover,self:Visual(w,'minimize')),r,4)
+        d:Rect(maximize,Theme.Mix(t.white,t.hover,self:Visual(w,'maximize')),r,4)
+        d:Border(Util.rect(maximize.x+19,y+12,9,8),t.text,r,5)
+        if w._restore then d:Line(maximize.x+21,y+10,maximize.x+30,y+10,t.text,r,5); d:Line(maximize.x+30,y+10,maximize.x+30,y+18,t.text,r,5) end
+        local back=Util.rect(x,y,48,32)
+        local backColor=#self.history>0 and t.text or t.muted
+        d:Line(x+18,y+16,x+30,y+16,backColor,r,5)
+        d:Line(x+18,y+16,x+23,y+11,backColor,r,5)
+        d:Line(x+18,y+16,x+23,y+21,backColor,r,5)
         local icon=closePressed and t.white or Theme.Mix(t.text,t.white,closeAmount)
         local cx,cy=close.x+23,y+16
         d:Line(cx-4,cy-4,cx+4,cy+4,icon,r,5)
@@ -338,13 +366,16 @@ function Runtime:Draw()
         else d:Rect(Util.rect(minimize.x+18,y+17,10,1),t.text,r,5) end
         if w.Visible then
             self:Hit(Util.rect(x,y,width,Theme.titleHeight),w,'windowDrag')
-            self:Hit(minimize,w,'minimize'); self:Hit(close,w,'close')
+            self:Hit(minimize,w,'minimize'); self:Hit(maximize,w,'maximize'); self:Hit(close,w,'close'); self:Hit(back,w,'back')
         end
-        self.contentClip=Util.rect(x+metrics.padding,y+metrics.contentTop,width-metrics.padding*2,math.max(0,height-metrics.contentTop-metrics.contentBottom))
+        local navigationWidth=Shell.Width(width)
+        if navigationWidth==0 and self.edit==self.search then self:Blur(true) end
+        self.contentClip=Util.rect(x+navigationWidth+metrics.padding,y+metrics.contentTop,width-navigationWidth-metrics.padding*2,math.max(0,height-metrics.contentTop-metrics.contentBottom))
         local contentHeight=0
         for index,section in ipairs(w.Sections) do
-            contentHeight=contentHeight+metrics.sectionHeight
-            for _,c in ipairs(section.Controls) do contentHeight=contentHeight+c.Height end
+            self.sectionOffsets[section]=contentHeight
+            contentHeight=contentHeight+(index==1 and metrics.pageHeight or metrics.sectionHeight)
+            for _,c in ipairs(section.Controls) do self.controlOffsets[c]=contentHeight; contentHeight=contentHeight+c.Height end
             if index<#w.Sections then contentHeight=contentHeight+metrics.sectionGap end
         end
         w.MaxScroll=math.max(0,contentHeight-math.max(0,w.Size.Y-metrics.contentTop-metrics.contentBottom))
@@ -352,11 +383,10 @@ function Runtime:Draw()
         if self.contentClip.h>0 then
             self:Hit(self.contentClip,w,'content')
             local cy=self.contentClip.y-w.Scroll
-            for _,section in ipairs(w.Sections) do
+            for index,section in ipairs(w.Sections) do
                 local rowWidth=self.contentClip.w-metrics.scrollbarGutter
-                d:Text(section.Name,self.contentClip.x,cy+4,t.text,rowWidth,self.contentClip,10,t.headingSize,t.headingFont)
-                d:Rect(Util.rect(self.contentClip.x,cy+31,rowWidth,1),t.line,self.contentClip,10)
-                cy=cy+metrics.sectionHeight
+                d:Text(section.Name,self.contentClip.x,cy+4,t.text,rowWidth,self.contentClip,10,index==1 and t.pageSize or t.headingSize,index==1 and t.font or t.headingFont)
+                cy=cy+(index==1 and metrics.pageHeight or metrics.sectionHeight)
                 for _,c in ipairs(section.Controls) do
                     local row=Util.rect(self.contentClip.x,cy,rowWidth,c.Height)
                     c._row=row
@@ -373,6 +403,7 @@ function Runtime:Draw()
                 d:Rect(bar,t.muted,nil,20)
                 self:Hit(Util.rect(bar.x-4,bar.y,11,bar.h),w,'scrollbar',nil,{track=track,thumb=thumb})
             end
+            Shell.Sidebar(self,r,navigationWidth)
             if self.retiringPopup then Views.Popup(self,self.retiringPopup,true) end
             Views.Popup(self,self.popup,false)
         end
@@ -476,6 +507,18 @@ function Runtime:Began(input,processed)
     if role=='windowDrag' then
         self:ClosePopup(); self.capture=nil
         self.drag={role=role,dx=self.pointer.X-c.Position.X,dy=self.pointer.Y-c.Position.Y}
+    elseif role=='sectionNavigation' then self:Navigate(hit.data)
+    elseif role=='home' then self:Navigate(0)
+    elseif role=='back' then
+        local offset=table.remove(self.history)
+        if offset then self:CancelInteraction(true); c.Scroll=offset; self:Dirty() end
+    elseif role=='maximize' then
+        if c._restore then
+            local restore=c._restore; c._restore=nil; c.Position=restore.Position; c:SetSize(restore.Size)
+        else
+            c._restore={Position=c.Position,Size=c.RequestedSize}
+            c.Position=Vector2.new(0,0); local view=self:Viewport(); c:SetSize(Vector2.new(math.max(320,view.X-16),math.max(180,view.Y-16)))
+        end
     elseif role=='minimize' then c:SetMinimized(not c.Minimized)
     elseif role=='close' then c:SetVisible(false)
     elseif role=='toggle' then self.capture=nil; c:SetValue(not c.Value)
@@ -516,6 +559,9 @@ function Runtime:Changed(input)
                 self.popup.scroll=Util.clamp((self.popup.scroll or 0)-delta,0,self.popup.maxScroll or 0); self:Dirty()
             end
             return
+        end
+        if self.window and self.window.Visible and not self.window.Minimized and self.navigationClip and Util.inside(self.navigationClip,self.pointer) then
+            self.navigationScroll=Util.clamp((self.navigationScroll or 0)-delta,0,self.navigationMaxScroll or 0); self:Dirty(); return
         end
         local w=self.window
         if w and w.Visible and not w.Minimized and Util.inside(self.contentClip,self.pointer) then
@@ -559,7 +605,7 @@ function Runtime:Destroy()
     for c in pairs(self.held) do self:ReleaseKey(c) end
     if self.box then self.box:ReleaseFocus() end
     for _,frame in ipairs(self.hitFrames) do frame:Destroy() end
-    self.hitFrames={}; self.hitCount=0
+    self.hitFrames={}; self.hitCount=0; self.search=nil; self.history={}; self.sectionOffsets={}; self.controlOffsets={}
     if self.gui then self.gui:Destroy(); self.gui=nil end
     if self.renderer then self.renderer:Destroy() end
     self.hits={}; self.notifications={}; self.animations={}; self.visualStates={}; self.visualAnimations={}; self.window=nil
