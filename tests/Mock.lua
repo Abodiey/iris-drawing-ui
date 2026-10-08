@@ -16,7 +16,6 @@ local function signal()
 end
 Vector2={new=function(x,y) return setmetatable({X=x,Y=y},{__type='Vector2'}) end}
 Mock.mouse=Vector2.new(0,0)
-Mock.clientMouse=Vector2.new(0,0)
 UDim2={fromOffset=function(x,y) return {X=x,Y=y} end}
 local colorMethods={}
 function colorMethods:ToHSV()
@@ -67,14 +66,11 @@ function cas:BindActionAtPriority(name,fn,touch,priority,input)
     Mock.actions[name]={fn=fn,priority=priority,input=input}
 end
 function cas:UnbindAction(name) Mock.actions[name]=nil end
-local legacyMouse=setmetatable({}, {__index=function(_,key) if key=='X' then return Mock.clientMouse.X elseif key=='Y' then return Mock.clientMouse.Y end end})
-local localPlayer={GetMouse=function() return legacyMouse end}
-local players={LocalPlayer=localPlayer}
-local services={Players=players,UserInputService=uis,ContextActionService=cas,RunService=run,Workspace=workspace,CoreGui=core}
+local services={UserInputService=uis,ContextActionService=cas,RunService=run,Workspace=workspace,CoreGui=core}
 game={GetService=function(_,name) assert(services[name],name); return services[name] end}
 Instance={}
 function Instance.new(kind)
-    assert(kind=='ScreenGui' or kind=='TextBox','Unexpected GUI: '..kind)
+    assert(kind=='ScreenGui' or kind=='TextBox' or kind=='Frame','Unexpected GUI: '..kind)
     local o={_kind=kind,_props={Text='',CursorPosition=-1,SelectionStart=-1},_signals={},Destroyed=false,FocusLost=signal()}
     function o:GetPropertyChangedSignal(name)
         if not self._signals[name] then self._signals[name]=signal() end
@@ -88,7 +84,13 @@ function Instance.new(kind)
         assert(not self.Destroyed,'Double Destroy'); self.Destroyed=true; self:ReleaseFocus()
         for _,child in ipairs(Mock.instances) do if child.Parent==self and not child.Destroyed then child:Destroy() end end
     end
-    setmetatable(o,{__index=function(obj,k) return obj._props[k] end,__newindex=function(obj,k,v)
+    setmetatable(o,{__index=function(obj,k)
+        if obj._kind=='Frame' and (k=='AbsolutePosition' or k=='AbsoluteSize') then
+            local key=k=='AbsolutePosition' and 'Position' or 'Size'; local value=obj._props[key] or {X=0,Y=0}
+            return Vector2.new(value.X,value.Y)
+        end
+        return obj._props[k]
+    end,__newindex=function(obj,k,v)
         local old=obj._props[k]; obj._props[k]=v
         if old~=v and obj._signals[k] then obj._signals[k]:Fire() end
     end})
@@ -100,18 +102,13 @@ function Mock.tick(count)
     for _=1,count or 1 do Mock.time=Mock.time+1/60; run.RenderStepped:Fire(1/60) end
 end
 function Mock.move(x,y)
-    Mock.mouse=Vector2.new(x,y); Mock.clientMouse=Vector2.new(x,y); uis.InputChanged:Fire({UserInputType=Enum.UserInputType.MouseMovement})
+    Mock.mouse=Vector2.new(x,y); uis.InputChanged:Fire({UserInputType=Enum.UserInputType.MouseMovement})
 end
 function Mock.click(x,y)
     Mock.move(x,y); uis.InputBegan:Fire({UserInputType=Enum.UserInputType.MouseButton1},false)
     uis.InputEnded:Fire({UserInputType=Enum.UserInputType.MouseButton1})
 end
-function Mock.clickCoordinates(screenX,screenY,clientX,clientY)
-    Mock.mouse=Vector2.new(screenX,screenY); Mock.clientMouse=Vector2.new(clientX,clientY)
-    uis.InputChanged:Fire({UserInputType=Enum.UserInputType.MouseMovement})
-    uis.InputBegan:Fire({UserInputType=Enum.UserInputType.MouseButton1},false)
-    uis.InputEnded:Fire({UserInputType=Enum.UserInputType.MouseButton1})
-end
+
 function Mock.press(key,processed)
     uis.InputBegan:Fire({UserInputType=Enum.UserInputType.Keyboard,KeyCode=Enum.KeyCode[key]},processed or false)
 end
