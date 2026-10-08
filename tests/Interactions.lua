@@ -313,7 +313,9 @@ test('direct Drawing properties and visibility-last work with unrelated helpers 
         setmetatable(object,{
             __newindex=function(_,property,value)
                 if property=='Visible' and value then
-                    assert(typeof(state.Position)=='Vector2','Visibility set before position')
+                    if kind=='Line' then
+                        assert(typeof(state.From)=='Vector2' and typeof(state.To)=='Vector2','Visibility set before line endpoints')
+                    else assert(typeof(state.Position)=='Vector2','Visibility set before position') end
                     if kind=='Square' then assert(typeof(state.Size)=='Vector2' and state.Size.X>0 and state.Size.Y>0,'Visibility set before valid geometry') end
                 end
                 state[property]=value

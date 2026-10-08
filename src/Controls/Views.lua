@@ -13,7 +13,7 @@ end
 local function fieldBox(rt,c,role,r,clip,focused,base)
     local d=rt.renderer
     d:Rect(r,surface(rt,c,role,base or Theme.field),clip,12)
-    d:Border(r,focused and Theme.accent or Theme.line,clip,13,focused and 2 or 1)
+    d:Border(r,focused and Theme.accent or Theme.Mix(Theme.line,Theme.borderHover,rt:Visual(c,role)),clip,13,focused and 2 or 1)
 end
 function Views.Control(rt,c,r,clip)
     local d,t=rt.renderer,Theme
@@ -51,6 +51,7 @@ function Views.Control(rt,c,r,clip)
         local ratio=c._visual or (c.Value and 1 or 0)
         local amount=rt:Visual(c,'toggle')
         local on=blend(t.accent,t.accentHover,amount)
+        if rt.pressedHit and rt.pressedHit.owner==c then on=t.accentHover end
         d:Round(switch,10,c.Value and on or blend(t.muted,t.text,amount),clip,12)
         if not c.Value then d:Round(Util.rect(switch.x+2,switch.y+2,36,16),8,t.white,clip,13) end
         d:Round(Util.rect(switch.x+4+20*ratio,switch.y+4,12,12),6,c.Value and t.white or t.muted,clip,14)
