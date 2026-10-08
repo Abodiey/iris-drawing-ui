@@ -42,11 +42,11 @@ Drawing overlay while the UI is open:
 loadstring(game:HttpGet('https://raw.githubusercontent.com/Abodiey/iris-drawing-ui/main/examples/MouseCoordinateTest.lua'))()
 ```
 
-Move the cursor over a control. The colored rings show candidate coordinates:
-red `Raw`, orange `MinusInset`, green `PlusInset`, blue `MinusHalf`, purple
-`PlusHalf`, and white `InputPosition`. Tell me which ring is centered on the
-visible cursor, plus the `[Iris mouse test]` line printed by pressing **P**.
-Press **End** to remove the overlay. The diagnostic changes no library settings.
+Move the cursor and compare the rings with the visible cursor. The overlay
+includes `GetMouseLocation`, legacy `Mouse.X/Y`, `InputObject.Position`, both
+signs of `GetGuiInset()` and `TopbarInset.Min`, and raw Y offsets from -60 to
++60 pixels. Press **P** and send the `[Iris mouse test]` console line too. Press
+**End** to remove the overlay. It does not change library settings.
 
 ## Window and sections
 
