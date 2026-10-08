@@ -1,7 +1,7 @@
 local Util=require('Internal.Util')
 local Runtime=require('Internal.Runtime')
 local Controls=require('Controls.Model')
-local UI={Flags={},_flags={},_controls={},_destroyed=false,Version='1.0.5'}
+local UI={Flags={},_flags={},_controls={},_destroyed=false,Version='1.0.6'}
 local Window={}; Window.__index=Window
 local Section={}; Section.__index=Section
 local function options(opts,allowed)

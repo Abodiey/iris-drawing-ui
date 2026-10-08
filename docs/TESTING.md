@@ -80,3 +80,7 @@ Version 1.0.5 corrects pointer translation direction for Madium: add the current
 GUI inset rather than subtract it. Regression clicks use raw mouse coordinates
 above the corresponding Drawing hit rectangle, including a changing inset.
 Live executor alignment still requires user confirmation.
+
+Version 1.0.6 removes all GUI inset translation after live user feedback showed
+subtraction was too high and addition was too low. Regression tests verify raw
+mouse coordinates stay unchanged when the GUI inset changes.

@@ -6,7 +6,6 @@ function Runtime.new(ui)
     local self=setmetatable({ui=ui,connections={},hits={},dirty=true,alpha=0,height=52,notifications={},held={},animations={},pointer=Vector2.new(0,0)},Runtime)
     local ok,message=pcall(function()
         self.input=game:GetService('UserInputService')
-        self.guiService=game:GetService('GuiService')
         self.actionService=game:GetService('ContextActionService')
         self.renderService=game:GetService('RunService')
         self.workspace=game:GetService('Workspace')
@@ -82,11 +81,8 @@ end
 function Runtime:Connect(signal,fn) table.insert(self.connections,signal:Connect(fn)) end
 function Runtime:Dirty() self.dirty=true end
 function Runtime:MousePosition()
-    -- Madium Drawing positions are inset below the mouse polling origin.
-    -- Translate the cursor into that same space; subtracting raises hit testing.
-    local mouse=self.input:GetMouseLocation()
-    local inset=self.guiService:GetGuiInset()
-    return Vector2.new(mouse.X+inset.X,mouse.Y+inset.Y)
+    -- Use the same screen coordinates as Drawing; no GUI inset translation.
+    return self.input:GetMouseLocation()
 end
 function Runtime:OwnsPointer(p)
     local w=self.window
