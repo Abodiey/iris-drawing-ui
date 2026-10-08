@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run bundle interactions using Lupa or a supplied native Luau executable."""
 from pathlib import Path
-import argparse, subprocess, tempfile
+import argparse, subprocess, tempfile, re
 root = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser()
 parser.add_argument('--luau', help='Path to a native Luau CLI executable')
@@ -10,12 +10,13 @@ mock = (root / 'tests/Mock.lua').read_text(encoding='utf-8-sig')
 bundle = (root / 'dist/Iris.lua').read_text(encoding='utf-8')
 interactions = (root / 'tests/Interactions.lua').read_text(encoding='utf-8-sig')
 example = (root / 'examples/Example.lua').read_text(encoding='utf-8-sig')
+version = re.search(r"Version='([^']+)'", bundle).group(1)
 example_setup = '''
 function game:HttpGet(url)
     assert(url == 'https://raw.githubusercontent.com/Abodiey/iris-drawing-ui/main/dist/Iris.lua?v=1.0.12')
     return Bundle
 end
-'''
+'''.replace('1.0.12', version)
 example_cleanup = '''
 Mock.tick(50)
 assert(_G.IrisDrawingExample, 'Example did not create an instance')
