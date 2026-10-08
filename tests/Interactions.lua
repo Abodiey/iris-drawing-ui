@@ -203,7 +203,7 @@ test('notification cap, stacking and expiry',function()
     fails(function() ui:Notify({Duration=0}) end)
 end)
 test('single centralized connections and idle primitive reuse',function()
-    local count=Mock.liveConnections(); equal(count,11)
+    local count=Mock.liveConnections(); equal(count,10)
     Mock.tick(60); local objects=#Mock.drawings
     Mock.tick(100); equal(#Mock.drawings,objects)
     for _=1,10 do rt:Dirty(); Mock.tick(1) end
@@ -496,42 +496,52 @@ test('native circles are smooth pooled and fall back to clipping bands',function
     rt:Dirty(); Mock.tick(1)
 end)
 
-test('Drawing cursor shares UIS coordinates and restores native cursor ownership',function()
-    local input=game:GetService('UserInputService')
-    input.WindowFocused:Fire()
-    input.MouseIconEnabled=true
-    window:SetVisible(true); window:SetMinimized(false); Mock.tick(60)
-    clickHit(rt,toggle,'toggle'); Mock.tick(1)
-    equal(input.MouseIconEnabled,false)
-    local cursor=rt.renderer.pools.Triangle[1]
-    assert(cursor.Visible)
-    equal(cursor.PointA.X,Mock.mouse.X); equal(cursor.PointA.Y,Mock.mouse.Y)
-    local first=cursor
-    Mock.move(Mock.mouse.X+1,Mock.mouse.Y+1); Mock.tick(1)
-    equal(rt.renderer.pools.Triangle[1],first)
-    equal(first.PointA.Y,Mock.mouse.Y)
-    Mock.move(0,0); Mock.tick(1)
-    equal(input.MouseIconEnabled,true); assert(not first.Visible)
-    input.MouseIconEnabled=false
-    clickHit(rt,toggle,'toggle'); Mock.tick(1)
-    Mock.move(0,0); Mock.tick(1); equal(input.MouseIconEnabled,false)
-    input.MouseIconEnabled=true
-    clickHit(rt,toggle,'toggle'); Mock.tick(1)
-    input.WindowFocusReleased:Fire(); Mock.tick(1)
-    equal(input.MouseIconEnabled,true); assert(not first.Visible)
-    input.WindowFocused:Fire(); Mock.tick(1)
-    equal(input.MouseIconEnabled,false)
-    window:SetVisible(false); Mock.tick(1); equal(input.MouseIconEnabled,true)
-    window:SetVisible(true); Mock.tick(60)
+test('viewport ratio origin translates every primitive without changing hit tests',function()
+    local camera=game:GetService('Workspace').CurrentCamera
+    local original=camera.ViewportSize
+    local d=rt.renderer
+    camera.ViewportSize=Vector2.new(1280,1001)
+    Mock.tick(60)
+    equal(d.offsetY,23)
+    local h=hit(rt,toggle,'toggle')
+    equal(h.frame.AbsolutePosition.Y,toggle._row.y)
+    clickHit(rt,toggle,'toggle')
+    d:Begin(1)
+    d:Rect({x=10,y=20,w=30,h=40},Color3.new(1,1,1))
+    d:Text('Origin',10,20,Color3.new(1,1,1),100,nil,12,13)
+    d:Round({x=10,y=20,w=20,h=20},10,Color3.new(1,1,1))
+    d:Finish()
+    equal(d.pools.Square[1].Position.Y,43)
+    equal(d.pools.Text[1].Position.Y,43)
+    equal(d.pools.Circle[1].Position.Y,53)
+    local square=d.pools.Square[1]
+    camera.ViewportSize=Vector2.new(1280,1024); Mock.tick(60)
+    equal(d.offsetY,0)
+    equal(d.pools.Square[1],square)
+    camera.ViewportSize=Vector2.new(1280,1001); Mock.tick(60)
+    equal(d.offsetY,23)
+    camera.ViewportSize=original; Mock.tick(60)
+    equal(d.offsetY,0)
+end)
+
+test('viewport ratio fallback tracks largest observed height',function()
+    local isolated=NewUI(Bundle)
+    isolated:CreateWindow({Name='Fallback'})
+    local d=isolated._runtime.renderer
+    d:SetViewport(Vector2.new(1000,1100)); equal(d.offsetY,0)
+    d:SetViewport(Vector2.new(1000,1077)); equal(d.offsetY,23)
+    d:SetViewport(Vector2.new(1000,1100)); equal(d.offsetY,0)
+    d:SetViewport(Vector2.new(0,0)); equal(d.offsetY,0)
+    isolated:Destroy()
 end)
 
 test('Destroy idempotent cleanup and fresh reload',function()
-    ui:Destroy(); ui:Destroy(); equal(game:GetService('UserInputService').MouseIconEnabled,true); assert(next(Mock.actions)==nil); equal(Mock.liveConnections(),0); equal(Mock.visibleDrawings(),0)
+    ui:Destroy(); ui:Destroy(); assert(next(Mock.actions)==nil); equal(Mock.liveConnections(),0); equal(Mock.visibleDrawings(),0)
     for _,d in ipairs(Mock.drawings) do assert(d.Removed,'Leaked drawing') end
     for _,g in ipairs(Mock.instances) do assert(g.Destroyed,'Leaked invisible instance') end
     assert(next(ui.Flags)==nil and next(ui._flags)==nil and #ui._controls==0)
     fails(function() toggle:SetValue(true) end)
     local fresh=NewUI(Bundle); fresh:CreateWindow({Name='Reload'}):AddSection('A'):AddToggle({Name='Enabled',Flag='enabled'})
-    Mock.tick(40); equal(Mock.liveConnections(),11); fresh:Destroy(); equal(Mock.liveConnections(),0)
+    Mock.tick(40); equal(Mock.liveConnections(),10); fresh:Destroy(); equal(Mock.liveConnections(),0)
 end)
 print(string.format('%d interaction groups passed',passed))
