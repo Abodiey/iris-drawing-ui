@@ -33,6 +33,21 @@ Madium is the current target; native Luau mock tests cover interactions and clea
 Live Madium focus, camera input consumption, and coordinate alignment still need
 verification in the executor. This is not a stock Roblox Studio UI module.
 
+## Mouse coordinate diagnostic
+
+If the cursor and controls do not line up in an executor, run this standalone
+Drawing overlay while the UI is open:
+
+```lua
+loadstring(game:HttpGet('https://raw.githubusercontent.com/Abodiey/iris-drawing-ui/main/examples/MouseCoordinateTest.lua'))()
+```
+
+Move the cursor over a control. The colored rings show candidate coordinates:
+red `Raw`, orange `MinusInset`, green `PlusInset`, blue `MinusHalf`, purple
+`PlusHalf`, and white `InputPosition`. Tell me which ring is centered on the
+visible cursor, plus the `[Iris mouse test]` line printed by pressing **P**.
+Press **End** to remove the overlay. The diagnostic changes no library settings.
+
 ## Window and sections
 
 ```lua
