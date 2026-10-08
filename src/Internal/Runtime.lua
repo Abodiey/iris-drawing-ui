@@ -11,7 +11,7 @@ function Runtime.new(ui)
         self.workspace=game:GetService('Workspace')
         self.renderer=Renderer.new()
         self.gui=Instance.new('ScreenGui')
-        self.gui.Name='IrisDrawingInput'; self.gui.IgnoreGuiInset=true; self.gui.ResetOnSpawn=false
+        self.gui.Name='IrisDrawingInput'; self.gui.IgnoreGuiInset=false; self.gui.ResetOnSpawn=false
         self.box=Instance.new('TextBox')
         self.box.Name='InvisibleInput'; self.box.BackgroundTransparency=1; self.box.TextTransparency=1
         self.box.TextStrokeTransparency=1; self.box.BorderSizePixel=0; self.box.ClearTextOnFocus=false

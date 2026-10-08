@@ -79,3 +79,8 @@ normally outside it; verify clicks line up with the cursor in Madium.
 Version 1.0.9 reads pointer coordinates only through UserInputService:GetMouseLocation.
 Invisible Frame hit regions use AbsolutePosition/AbsoluteSize and are pooled with the
 central renderer lifecycle; their backgrounds are transparent and they do not activate.
+
+Version 1.0.10 keeps the input GUI on Roblox's default safe-area origin so each
+invisible hit region's AbsolutePosition matches UIS screen coordinates. Only its
+AbsolutePosition/AbsoluteSize are used for hit testing; pointer sampling remains
+GetMouseLocation.

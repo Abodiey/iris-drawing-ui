@@ -425,7 +425,7 @@ test('notification text stays visible after its fade-in completes',function()
     assert(title and title.Transparency>.999,'Notification became transparent after fading in')
     Mock.tick(300); equal(#rt.notifications,0)
 end)
-test('mouse sampling uses UIS location and widget hitboxes use absolute GUI bounds',function()
+test('mouse sampling uses UIS and screen hitboxes follow GUI viewport geometry',function()
     window.Scroll=0; rt:Dirty(); Mock.tick(60)
     local row=hit(rt,toggle,'toggle').rect
     local record
@@ -433,11 +433,16 @@ test('mouse sampling uses UIS location and widget hitboxes use absolute GUI boun
     assert(record and record.frame and record.frame.AbsolutePosition and record.frame.AbsoluteSize)
     equal(record.frame.AbsolutePosition.X,row.x); equal(record.frame.AbsolutePosition.Y,row.y)
     equal(record.frame.AbsoluteSize.X,row.w); equal(record.frame.AbsoluteSize.Y,row.h)
-    Mock.mouse=Vector2.new(row.x+20,row.y+20)
     local value=toggle.Value
-    Mock.click(row.x+20,row.y+20)
+    -- The GUI engine translates the absolute frame bounds with its safe-area origin.
+    Mock.screenInset=Vector2.new(0,24)
+    local screenY=row.y+20+Mock.screenInset.Y
+    Mock.click(row.x+20,screenY)
+    equal(record.frame.AbsolutePosition.Y,row.y+Mock.screenInset.Y)
     equal(toggle.Value,not value)
-    equal(rt.pointer.X,row.x+20); equal(rt.pointer.Y,row.y+20)
+    equal(rt.pointer.X,row.x+20); equal(rt.pointer.Y,screenY)
+    -- The engine's updated origin is reflected without changing mouse math.
+    Mock.screenInset=Vector2.new(0,0)
 end)
 
 test('wheel capture is scoped and unbound independently on destroy',function()
