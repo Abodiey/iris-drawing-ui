@@ -25,6 +25,22 @@ local function fieldBox(rt,c,role,r,clip,focused,base,borderWidth)
     local color=focused and Theme.accent or Theme.Mix(Theme.controlBorder,Theme.borderHover,rt:Visual(c,role))
     d:Border(r,color,clip,13,borderWidth or 2)
 end
+-- The slider value is a small editable field: clicking it starts a native text
+-- edit session so a value can be typed, selected and stepped with the arrows.
+function Views.ValueSession(control)
+    local session={Control=control,MaxLength=16,SelectAll=true}
+    function session:Filter(text) return (text:gsub('[^%d%.%-]','')) end
+    function session:SetValue(text)
+        local number=tonumber(text)
+        if number then control:SetValue(number) end
+    end
+    function session:StepText(text,direction)
+        local base=tonumber(text)
+        if not base then base=control.Value end
+        return tostring(Util.clamp(base+direction*control.Step,control.Min,control.Max))
+    end
+    return session
+end
 function Views.Field(r)
     local width=math.min(Theme.metrics.fieldWidth,r.w)
     local height=Theme.metrics.fieldHeight
@@ -68,7 +84,29 @@ function Views.Control(rt,c,r,clip)
         if active then color=t.thumbPressed
         elseif amount>0 then color=Theme.Mix(t.accent,t.thumbHover,amount) end
         d:Round(thumb,thumbW/2,color,clip,14)
-        d:Text(tostring(c.Value),track.x+width+16,y+34-m.sliderThumbHeight/2,t.muted,w-width-16,clip,12)
+        -- The value sits beside the track and is click-to-edit.
+        local session=c._valueEdit
+        if not session then session=Views.ValueSession(c); c._valueEdit=session end
+        local text=tostring(c.Value)
+        if session.Value~=text then session.Value=text end
+        local fieldWidth=math.max(56,d:Width(text,t.bodySize)+20)
+        local fieldX=track.x+width+16
+        if fieldX+fieldWidth<=x+w then
+            local field=Util.rect(fieldX,track.y+track.h/2-m.sliderValueHeight/2,fieldWidth,m.sliderValueHeight)
+            session.rect=field
+            if rt.edit==session then
+                d:Rect(field,t.field,clip,15)
+                d:Border(field,t.accent,clip,16,2)
+                rt:DrawEditing(session,field,clip)
+            else
+                local over=rt:Visual(session,'value')
+                if over>0 then d:Rect(field,Theme.Mix(t.bg,t.hover,over),clip,15) end
+                d:Text(text,field.x+8,field.y+(m.sliderValueHeight-19)/2,t.text,field.w-16,clip,17,t.bodySize)
+            end
+            rt:Hit(field,session,'value',clip,field)
+        else
+            d:Text(text,fieldX,track.y+track.h/2-9,t.text,w-width-16,clip,12,t.bodySize)
+        end
         rt:Hit(Util.rect(x,track.y+track.h/2-m.sliderHit/2,width,m.sliderHit),c,'slider',clip,track); return
     end
     local field=c._anchor or Views.Field(r)

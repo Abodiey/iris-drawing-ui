@@ -42,7 +42,7 @@ function Color3.fromHSV(h,s,v)
 end
 function typeof(v) return type(v)=='table' and (getmetatable(v) or {}).__type or type(v) end
 Enum={KeyCode={},UserInputType={},ContextActionResult={Pass='Pass',Sink='Sink'},ContextActionPriority={High={Value=3000}}}
-for word in ('None Unknown Escape Return KeypadEnter Backspace Delete RightShift LeftShift LeftControl RightControl Space Tab Insert Home End PageUp PageDown F1 F2 F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 A B C D E F G H I J K L M N O P Q R S T U V W X Y Z One Two Three Four Five Six Seven Eight Nine Zero'):gmatch('%S+') do Enum.KeyCode[word]={Name=word} end
+for word in ('None Unknown Escape Return KeypadEnter Backspace Delete RightShift LeftShift LeftControl RightControl Space Tab Insert Home End PageUp PageDown Up Down Left Right F1 F2 F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 A B C D E F G H I J K L M N O P Q R S T U V W X Y Z One Two Three Four Five Six Seven Eight Nine Zero'):gmatch('%S+') do Enum.KeyCode[word]={Name=word} end
 for _,name in ipairs({'Keyboard','MouseButton1','MouseButton2','MouseMovement','MouseWheel'}) do Enum.UserInputType[name]={Name=name} end
 Drawing={}
 function Drawing.new(kind)

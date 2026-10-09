@@ -65,7 +65,7 @@ local Theme={
         fieldHeight=32, fieldWidth=280, controlTop=24, sliderWidth=320,
         itemHeight=32, popupPadding=4,
         toggleWidth=44, toggleTrackHeight=20, toggleKnob=12, toggleInset=4, toggleLabelGap=14,
-        sliderTrack=2, sliderThumbWidth=8, sliderThumbHeight=24, sliderHit=32,
+        sliderTrack=2, sliderThumbWidth=8, sliderThumbHeight=24, sliderHit=32, sliderValueHeight=24,
         checkbox=20, checkGlyph=12,
         navRow=48, navText=48, navTop=194, navIcon=16, navBarWidth=4, navBarHeight=24,
         homeTop=40, searchTop=97, searchInset=16, headerTop=151,

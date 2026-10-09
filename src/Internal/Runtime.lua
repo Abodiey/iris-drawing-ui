@@ -24,6 +24,7 @@ function Runtime.new(ui)
         self:Connect(self.box:GetPropertyChangedSignal('Text'),function()
             if self.edit and not self.syncing then
                 local value=Util.clean(self.box.Text,self.edit.MaxLength)
+                if self.edit.Filter then value=self.edit:Filter(value) end
                 if value~=self.box.Text then self.syncing=true; self.box.Text=value; self.syncing=false end
                 self:Dirty()
             end
@@ -496,7 +497,16 @@ function Runtime:Began(input,processed)
         local key=input.KeyCode.Name
         if self.edit then
             if key=='Escape' then self:Blur(false)
-            elseif key=='Return' or key=='KeypadEnter' then self:Blur(true) end
+            elseif key=='Return' or key=='KeypadEnter' then self:Blur(true)
+            elseif (key=='Up' or key=='Down') and self.edit.StepText then
+                -- Arrow keys step an editable numeric value without retyping it.
+                local nextValue=self.edit:StepText(self.box.Text,key=='Up' and 1 or -1)
+                if nextValue then
+                    self.syncing=true; self.box.Text=nextValue; self.syncing=false
+                    self.box.CursorPosition=#self.box.Text+1; self.box.SelectionStart=1
+                    self:Dirty()
+                end
+            end
             return
         end
         if self.input:GetFocusedTextBox() then return end
@@ -563,6 +573,13 @@ function Runtime:Began(input,processed)
             c:SetValue(value)
         end
     elseif role=='textbox' then self:Focus(c,hit.data)
+    elseif role=='value' then
+        self:Focus(c,hit.data)
+        if c.SelectAll then
+            self.box.SelectionStart=1
+            self.box.CursorPosition=#self.box.Text+1
+        end
+        self:Dirty()
     elseif role=='keybind' then
         self:Blur(true); self:ClosePopup(); self.capture=c; self:ReleaseKey(c); self:Dirty()
     elseif role=='scrollbar' then

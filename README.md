@@ -9,7 +9,7 @@ There is no gameplay code and no dependency on JJS or any other project.
 
 ```lua
 local UI = loadstring(game:HttpGet(
-    'https://raw.githubusercontent.com/Abodiey/iris-drawing-ui/main/dist/Iris.lua?v=1.0.19'
+    'https://raw.githubusercontent.com/Abodiey/iris-drawing-ui/main/dist/Iris.lua?v=1.0.20'
 ))()
 local Window = UI:CreateWindow({Name = 'Example'})
 local Section = Window:AddSection('General')
@@ -69,7 +69,10 @@ recorded position. Navigation scrolls independently.
 Click and hover targets match visible controls in both X and Y; blank row
 space and labels do not open dropdowns, toggle switches, or capture input.
 Sliders accept initial clicks only on their track/thumb area; dragging continues
-outside it until release. All existing methods, configs and callback semantics
+outside it until release. The slider value is editable in place: clicking the
+number opens the native text field with the accent focus border, input is
+filtered to digits, and a commit runs through the same clamping and snapping as
+`SetValue`. All existing methods, configs and callback semantics
 remain unchanged.
 
 Colors, typography, spacing and motion are centralized in
@@ -150,7 +153,7 @@ Section:AddSeparator({Name = 'Advanced'})  -- Name may be omitted for a plain li
 | --- | --- |
 | Button | No value or flag. Callback receives no arguments. Fires on mouse-down. |
 | Toggle | Boolean. Default `false`. |
-| Slider | Finite number. Required `Min` and `Max` with `Max > Min`; positive `Step` defaults to 1. Values clamp and snap relative to Min. Default Min. |
+| Slider | Finite number. Required `Min` and `Max` with `Max > Min`; positive `Step` defaults to 1. Values clamp and snap relative to Min. Default Min. The number beside the track is click-to-edit: click it, type a value, press Enter to commit or Escape to cancel, and use Up/Down to step by `Step`. |
 | Dropdown | Exact option string. Unique nonempty strings in a dense `Options` array, up to 500. Defaults to the first option; an empty list uses `''` and renders as a disabled combo box that does not accept clicks. |
 | MultiDropdown | Array of option strings, default `{}`. Rejects unknown/duplicate selections and stores them in Options order. |
 | Textbox | Single-line UTF-8 string, default `''`. MaxLength is 1أ¢â‚¬â€œ4096 codepoints, default 256. Control characters become spaces. Enter, outside click, scrolling, hiding, or native focus loss commits; Escape cancels. Mouse and keyboard selection are supported. |

@@ -974,6 +974,48 @@ test('a combo with no options is disabled like the Settings app',function()
     item:Destroy()
 end)
 
+test('slider values are click-to-edit with validation and arrow stepping',function()
+    local item=NewUI(Bundle)
+    local w=item:CreateWindow({Name='Values',Size=Vector2.new(900,600),Position=Vector2.new(0,0)})
+    local s=w:AddSection('System')
+    local counts=0
+    local slider=s:AddSlider({Name='Delay',Flag='delay',Min=0,Max=1000,Step=5,Default=350,Callback=function() counts=counts+1 end})
+    local other=s:AddToggle({Name='Enabled',Flag='enabled'})
+    Mock.tick(60)
+    local runtime=item._runtime
+    local session=slider._valueEdit
+    assert(session,'The slider value must expose an edit session')
+    local function openValue()
+        local record=hit(runtime,session,'value')
+        Mock.click(record.rect.x+12,record.rect.y+record.rect.h/2)
+        assert(runtime.edit==session,'Clicking the value must start editing')
+    end
+    openValue()
+    equal(runtime.box.SelectionStart,1)
+    runtime.box.Text='250'; Mock.tick(1)
+    Mock.press('Return'); Mock.tick(1)
+    equal(slider.Value,250); equal(counts,1); assert(not runtime.edit)
+    openValue(); runtime.box.Text='abc'; Mock.press('Return'); equal(slider.Value,250); equal(counts,1)
+    openValue(); runtime.box.Text='12x3'; equal(runtime.box.Text,'123'); Mock.press('Escape')
+    equal(slider.Value,250); assert(not runtime.edit)
+    openValue(); runtime.box.Text='9999'; Mock.press('Return'); equal(slider.Value,1000)
+    openValue(); runtime.box.Text='352'; Mock.press('Up'); Mock.press('Return'); equal(slider.Value,355)
+    openValue(); Mock.press('Down'); Mock.press('Return'); equal(slider.Value,350)
+    openValue(); runtime.box.Text='400'
+    clickHit(runtime,other,'toggle')
+    equal(slider.Value,400); equal(other.Value,true); assert(not runtime.edit)
+    -- A window too narrow for the value field falls back to plain text.
+    local narrow=NewUI(Bundle)
+    local narrowWindow=narrow:CreateWindow({Name='Narrow',Size=Vector2.new(320,300),Position=Vector2.new(0,0)})
+    narrowWindow:AddSection('Tight'):AddSlider({Name='Level',Flag='level',Min=0,Max=10,Default=5})
+    Mock.tick(30)
+    local narrowRuntime=narrow._runtime
+    fails(function() hit(narrowRuntime,narrowWindow.Sections[1].Controls[1]._valueEdit,'value') end)
+    equal(narrowWindow.Sections[1].Controls[1].Value,5)
+    narrow:Destroy()
+    item:Destroy()
+end)
+
 test('Destroy idempotent cleanup and fresh reload',function()
     ui:Destroy(); ui:Destroy(); assert(next(Mock.actions)==nil); equal(Mock.liveConnections(),0); equal(Mock.visibleDrawings(),0)
     for _,d in ipairs(Mock.drawings) do assert(d.Removed,'Leaked drawing') end

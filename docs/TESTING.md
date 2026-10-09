@@ -3,7 +3,7 @@
 Verified locally on 2026-10-09 (version 1.0.19):
 
 - All source modules and the bundled release parse under native Luau 0.741.
-- 57 interaction groups pass under native Luau 0.741 and Lupa 2.8 (Lua 5.5).
+- 58 interaction groups pass under native Luau 0.741 and Lupa 2.8 (Lua 5.5).
 - The complete example executes, reruns, and cleans up under both mock runtimes.
 - The bundle reproduces exactly from source with `scripts/build.py --check`.
 - Drawing-only layout was visually reviewed using mock-rendered previews.
@@ -106,3 +106,9 @@ under the pointer.
 Not covered by the mocks: native focus/clipboard behaviour, real font metrics,
 executor rendering, and how the Drawing backend draws the rounded bands. Those
 still require the live smoke test below.
+
+Version 1.0.20 adds click-to-edit slider values. Regressions cover opening the
+value field by clicking the number, select-all on focus, numeric filtering
+(`12x3` becomes `123`), commit by Enter, cancel by Escape, invalid text leaving
+the value untouched, clamping and snapping through the setter validation,
+Up/Down stepping by `Step`, and committing by clicking another control.
