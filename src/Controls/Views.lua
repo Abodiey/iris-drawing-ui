@@ -4,17 +4,26 @@ local Views={Theme=Theme}
 local function blend(a,b,t)
     return Color3.new(a.R+(b.R-a.R)*t,a.G+(b.G-a.G)*t,a.B+(b.B-a.B)*t)
 end
+local function isPressed(rt,c,role,data)
+    local pressed=rt.pressedHit
+    return pressed and pressed.owner==c and pressed.role==role and (data==nil or pressed.data==data)
+end
 local function surface(rt,c,role,base,data)
     local amount=rt:Visual(c,role,data)
-    local pressed=rt.pressedHit
-    if pressed and pressed.owner==c and pressed.role==role and (data==nil or pressed.data==data) then return Theme.pressed end
+    if isPressed(rt,c,role,data) then return Theme.pressed end
     return blend(base,Theme.hover,amount)
 end
-local function fieldBox(rt,c,role,r,clip,focused,base)
+-- Windows 10 text fields use a 2 px border that turns accent on focus and
+-- #666666 on pointer over; buttons keep their fill and gain a 1 px border.
+local function fieldBox(rt,c,role,r,clip,focused,base,borderWidth)
     local d=rt.renderer
     local fill=role=='textbox' and Theme.field or surface(rt,c,role,base or Theme.field)
+    if role=='dropdown' and not isPressed(rt,c,role) then
+        fill=blend(base or Theme.field,Theme.pressed,rt:Visual(c,role))
+    end
     d:Rect(r,fill,clip,12)
-    d:Border(r,focused and Theme.accent or Theme.Mix(Theme.controlBorder,Theme.borderHover,rt:Visual(c,role)),clip,13,role=='button' and 0 or 2)
+    local color=focused and Theme.accent or Theme.Mix(Theme.controlBorder,Theme.borderHover,rt:Visual(c,role))
+    d:Border(r,color,clip,13,borderWidth or 2)
 end
 function Views.Field(r)
     local width=math.min(Theme.metrics.fieldWidth,r.w)
@@ -23,72 +32,99 @@ function Views.Field(r)
 end
 function Views.Control(rt,c,r,clip)
     local d,t=rt.renderer,Theme
+    local m=t.metrics
     local x,y,w=r.x,r.y,r.w
     local kind=c.Kind
     if kind=='Separator' then
-        if c.Name~='' then d:Text(c.Name,x,y+5,t.muted,w,clip,12,t.bodySize,t.headingFont) end
+        if c.Name~='' then d:Text(c.Name,x,y+4,t.muted,w,clip,12,t.bodySize) end
         d:Rect(Util.rect(x,y+24,w,1),t.line,clip,11); return
     end
-    if kind=='Label' then d:Text(c.Name,x,y+4,t.muted,w,clip,12,t.bodySize); return end
+    if kind=='Label' then d:Text(c.Name,x,y+3,t.muted,w,clip,12,t.bodySize); return end
     if kind=='Button' then
-        local button=Util.rect(x,y+4,math.min(w,math.max(88,math.ceil(d:Width(c.Name,t.bodySize))+24)),t.metrics.fieldHeight)
-        fieldBox(rt,c,'button',button,clip,false,t.button)
-        d:Text(c.Name,button.x+12,button.y+8,t.text,button.w-24,clip,14)
+        local button=Util.rect(x,y+4,math.min(w,math.max(88,math.ceil(d:Width(c.Name,t.bodySize))+24)),m.fieldHeight)
+        local amount=rt:Visual(c,'button')
+        local pressed=isPressed(rt,c,'button')
+        d:Rect(button,pressed and t.buttonPressed or t.button,clip,12)
+        if amount>0 or pressed then
+            d:Border(button,Theme.Mix(t.button,t.buttonBorder,amount),clip,13,1)
+        end
+        d:Text(c.Name,button.x+12,button.y+7,t.text,button.w-24,clip,14)
         rt:Hit(button,c,'button',clip); return
     end
     if kind=='Slider' then
-        local width=math.min(w,t.metrics.sliderWidth)
-        local value=tostring(c.Value)
-        local valueWidth=math.min(width*.3,d:Width(value,t.bodySize))
-        d:Text(c.Name,x,y+4,t.text,width-valueWidth-16,clip,12)
-        d:Text(value,x+width-valueWidth,y+4,t.muted,valueWidth,clip,12)
-        local track=Util.rect(x+7,y+34,width-14,2)
+        local width=math.min(w,m.sliderWidth)
         local ratio=c._visual or (c.Value-c.Min)/(c.Max-c.Min)
+        local track=Util.rect(x+4,y+34,width-8,m.sliderTrack)
         local active=rt.drag and rt.drag.control==c
         local amount=rt:Visual(c,'slider')
-        local color=active and t.accentHover or blend(t.accent,t.accentHover,amount)
-        d:Rect(track,t.line,clip,12)
-        d:Rect(Util.rect(track.x,track.y,track.w*ratio,track.h),color,clip,13)
-        d:Round(Util.rect(track.x+track.w*ratio-7,track.y-6,14,14),7,color,clip,14)
-        rt:Hit(Util.rect(x,track.y-7,width,16),c,'slider',clip,track); return
+        d:Text(c.Name,x,y+3,t.text,width,clip,12)
+        d:Rect(track,t.sliderTrack,clip,12)
+        local filled=track.w*ratio
+        if filled>0 then d:Rect(Util.rect(track.x,track.y,filled,track.h),active and t.accentPressed or t.accent,clip,13) end
+        local cx=track.x+filled
+        local thumbW,thumbH=m.sliderThumbWidth,m.sliderThumbHeight
+        local thumb=Util.rect(cx-thumbW/2,track.y+track.h/2-thumbH/2,thumbW,thumbH)
+        local color=t.accent
+        if active then color=t.thumbPressed
+        elseif amount>0 then color=Theme.Mix(t.accent,t.thumbHover,amount) end
+        d:Round(thumb,thumbW/2,color,clip,14)
+        d:Text(tostring(c.Value),track.x+width+16,y+34-m.sliderThumbHeight/2,t.muted,w-width-16,clip,12)
+        rt:Hit(Util.rect(x,track.y+track.h/2-m.sliderHit/2,width,m.sliderHit),c,'slider',clip,track); return
     end
     local field=c._anchor or Views.Field(r)
     d:Text(c.Name,x,y+3,t.text,w,clip,12)
     if kind=='Toggle' then
-        local switch=Util.rect(x,y+t.metrics.controlTop+2,44,20)
-        d:Text(c.Value and 'On' or 'Off',switch.x+52,switch.y+2,t.text,40,clip,12,t.bodySize)
+        local trackHeight=m.toggleTrackHeight
+        local switch=Util.rect(x,y+m.controlTop+2,m.toggleWidth,trackHeight)
         local ratio=c._visual or (c.Value and 1 or 0)
         local amount=rt:Visual(c,'toggle')
-        local on=blend(t.accent,t.accentHover,amount)
-        if rt.pressedHit and rt.pressedHit.owner==c then on=t.accentHover end
-        d:Round(switch,10,c.Value and on or blend(t.switchBorder,t.text,amount),clip,12)
-        if not c.Value then d:Round(Util.rect(switch.x+2,switch.y+2,40,16),8,t.white,clip,13) end
-        d:Round(Util.rect(switch.x+4+24*ratio,switch.y+4,12,12),6,c.Value and t.white or t.switchBorder,clip,14)
+        local pressed=isPressed(rt,c,'toggle')
+        d:Text(c.Value and 'On' or 'Off',switch.x+m.toggleWidth+m.toggleLabelGap,switch.y+3,t.text,40,clip,12,t.bodySize)
+        if ratio<1 then
+            local stroke=pressed and t.togglePressed or Theme.Mix(t.switchStroke,t.switchStrokeHover,amount)
+            d:Round(switch,trackHeight/2,stroke,clip,12,1-ratio)
+            d:Round(Util.rect(switch.x+2,switch.y+2,switch.w-4,switch.h-4),trackHeight/2-2,t.field,clip,13,1-ratio)
+        end
+        if ratio>0 then
+            local on=pressed and t.togglePressed or Theme.Mix(t.accent,t.accentHover,amount)
+            d:Round(switch,trackHeight/2,on,clip,12,ratio)
+        end
+        local knob=m.toggleKnob
+        local knobX=switch.x+m.toggleInset+(switch.w-knob-m.toggleInset*2)*ratio
+        local offKnob=pressed and t.white or Theme.Mix(t.checkBorder,t.checkBorderHover,amount)
+        d:Round(Util.rect(knobX,switch.y+(trackHeight-knob)/2,knob,knob),knob/2,blend(offKnob,t.white,ratio),clip,14)
         rt:Hit(switch,c,'toggle',clip)
     elseif kind=='Dropdown' or kind=='MultiDropdown' then
         local open=rt.popup and rt.popup.control==c
-        fieldBox(rt,c,'dropdown',field,clip,open)
         local text=kind=='Dropdown' and c.Value or (#c.Value==0 and 'None' or table.concat(c.Value,', '))
-        d:Text(text,field.x+8,field.y+8,t.text,field.w-30,clip,14,t.bodySize)
-        local cx,cy=field.x+field.w-15,field.y+14
-        d:Line(cx-4,cy,cx,cy+4,t.text,clip,14)
-        d:Line(cx,cy+4,cx+4,cy,t.text,clip,14)
+        if #c.Options==0 then
+            -- Windows 10 disables a combo box that has nothing to choose.
+            d:Rect(field,t.disabled,clip,12)
+            d:Border(field,t.disabled,clip,13,2)
+            d:Text(text=='' and 'None' or text,field.x+12,field.y+8,t.disabledText,field.w-44,clip,14,t.bodySize)
+            return
+        end
+        fieldBox(rt,c,'dropdown',field,clip,open)
+        d:Text(text,field.x+12,field.y+8,t.text,field.w-44,clip,14,t.bodySize)
+        local cx,cy=field.x+field.w-16,field.y+16
+        d:Line(cx-5,cy-2,cx,cy+3,t.text,clip,14)
+        d:Line(cx,cy+3,cx+5,cy-2,t.text,clip,14)
         rt:Hit(field,c,'dropdown',clip,field)
     elseif kind=='Textbox' then
         fieldBox(rt,c,'textbox',field,clip,rt.edit==c)
         if rt.edit==c then rt:DrawEditing(c,field,clip)
-        else d:Text(c.Value=='' and c.Placeholder or c.Value,field.x+8,field.y+8,c.Value=='' and t.muted or t.text,field.w-16,clip,14,t.bodySize) end
+        else d:Text(c.Value=='' and c.Placeholder or c.Value,field.x+12,field.y+8,c.Value=='' and t.placeholder or t.text,field.w-24,clip,14,t.bodySize) end
         rt:Hit(field,c,'textbox',clip,field)
     elseif kind=='Keybind' then
         fieldBox(rt,c,'keybind',field,clip,rt.capture==c)
-        d:Text(rt.capture==c and 'Press a key...' or c.Value,field.x+8,field.y+8,rt.capture==c and t.accent or t.text,field.w-16,clip,14,t.bodySize)
+        d:Text(rt.capture==c and 'Press a key...' or c.Value,field.x+12,field.y+8,rt.capture==c and t.accent or t.text,field.w-24,clip,14,t.bodySize)
         rt:Hit(field,c,'keybind',clip)
     elseif kind=='ColorPicker' then
         fieldBox(rt,c,'color',field,clip,rt.popup and rt.popup.control==c)
-        local swatch=Util.rect(field.x+6,field.y+6,20,20)
-        d:Rect(swatch,c.Value,clip,14); d:Border(swatch,t.line,clip,15)
+        local swatch=Util.rect(field.x+5,field.y+5,22,22)
+        d:Rect(swatch,c.Value,clip,14); d:Border(swatch,t.controlBorder,clip,15,1)
         local color=c.Value
-        d:Text(string.format('#%02X%02X%02X',math.floor(color.R*255+.5),math.floor(color.G*255+.5),math.floor(color.B*255+.5)),field.x+34,field.y+8,t.text,field.w-42,clip,14,t.bodySize)
+        d:Text(string.format('#%02X%02X%02X',math.floor(color.R*255+.5),math.floor(color.G*255+.5),math.floor(color.B*255+.5)),field.x+36,field.y+8,t.text,field.w-48,clip,14,t.bodySize)
         rt:Hit(field,c,'color',clip,field)
     end
 end
@@ -100,11 +136,12 @@ function Views.Popup(rt,popup,retiring)
     if not anchor or not Util.contains(anchor,rt.contentClip) then if not retiring then rt:ClosePopup() end; return end
     local view=rt:Viewport()
     local d,t=rt.renderer,Views.Theme
+    local m=t.metrics
     local width=c.Kind=='ColorPicker' and 230 or anchor.w
-    local itemHeight=t.metrics.itemHeight
-    local padding=t.metrics.popupPadding
+    local itemHeight=m.itemHeight
+    local padding=m.popupPadding
     width=math.min(width,view.X-16)
-    local wanted=c.Kind=='ColorPicker' and 214 or math.min(math.max(1,#c.Options)*itemHeight+padding*2,264)
+    local wanted=c.Kind=='ColorPicker' and 214 or math.min(math.max(1,#c.Options)*itemHeight+padding*2,504)
     local below=view.Y-(anchor.y+anchor.h+6)-8
     local above=anchor.y-14
     local down=below>=wanted or below>=above
@@ -116,7 +153,8 @@ function Views.Popup(rt,popup,retiring)
     local alpha=d.alpha
     d.alpha=alpha*(popup.alpha or 1)
     local function hit(...) if not retiring then rt:Hit(...) end end
-    d:Rect(r,t.card,nil,41); d:Border(r,t.line,nil,42)
+    -- Windows 10 flyouts use the transient background with a 1 px border.
+    d:Rect(r,t.card,nil,41); d:Border(r,t.line,nil,42,1)
     hit(r,c,'popup',nil)
     if c.Kind=='ColorPicker' then
         if height<214 then if not retiring then rt:ClosePopup() end; return end
@@ -156,26 +194,34 @@ function Views.Popup(rt,popup,retiring)
             local selected=c.Kind=='Dropdown' and c.Value==item
             if c.Kind=='MultiDropdown' then for _,name in ipairs(c.Value) do if name==item then selected=true end end end
             local amount=rt:Visual(c,'option',item)
-            local base=selected and c.Kind=='Dropdown' and t.selection or t.card
-            d:Rect(row,blend(base,t.hover,amount),clip,42)
-            local inset=8
+            local base=selected and t.accentLow or t.card
+            d:Rect(row,surface(rt,c,'option',base,item),clip,42)
+            local inset=12
             if c.Kind=='MultiDropdown' then
-                local box=Util.rect(row.x+8,row.y+8,16,16)
-                d:Rect(box,selected and t.accent or t.white,clip,43)
-                d:Border(box,selected and t.accent or t.muted,clip,44)
-                if selected then
-                    d:Line(box.x+3,box.y+8,box.x+6,box.y+11,t.white,clip,45,2)
-                    d:Line(box.x+6,box.y+11,box.x+13,box.y+4,t.white,clip,45,2)
+                local box=Util.rect(row.x+11,row.y+(itemHeight-m.checkbox)/2,m.checkbox,m.checkbox)
+                local checked=selected
+                local pressed=isPressed(rt,c,'option',item)
+                local hover=Theme.Mix(t.checkBorder,t.checkBorderHover,amount)
+                if checked then
+                    d:Rect(box,pressed and t.pressed or (amount>0 and t.accentHover or t.accent),clip,43)
+                    d:Border(box,pressed and t.pressed or (amount>0 and t.accentHover or t.accent),clip,44,1)
+                    local glyph=m.checkGlyph
+                    local gx,gy=box.x+(m.checkbox-glyph)/2,box.y+(m.checkbox-glyph)/2
+                    d:Line(gx+1,gy+glyph/2,gx+glyph/2-1,gy+glyph-3,t.white,clip,45,2)
+                    d:Line(gx+glyph/2-1,gy+glyph-3,gx+glyph-1,gy+2,t.white,clip,45,2)
+                else
+                    d:Rect(box,pressed and t.pressed or t.field,clip,43)
+                    d:Border(box,pressed and t.pressed or hover,clip,44,1)
                 end
-                inset=32
+                inset=11+m.checkbox+8
             end
             d:Text(item,row.x+inset,row.y+7,t.text,row.w-inset-8,clip,43,t.bodySize)
             hit(row,c,'option',clip,item)
         end
-        if #c.Options==0 then d:Text('No options',clip.x+8,clip.y+7,t.muted,clip.w-16,clip,43,t.bodySize) end
+        if #c.Options==0 then d:Text('No options',clip.x+11,clip.y+7,t.muted,clip.w-22,clip,43,t.bodySize) end
         if max>0 then
             local hbar=math.max(16,clip.h*clip.h/(#c.Options*itemHeight))
-            d:Round(Util.rect(r.x+r.w-4,clip.y+(clip.h-hbar)*popup.scroll/max,2,hbar),1,t.muted,r,44)
+            d:Round(Util.rect(r.x+r.w-6,clip.y+(clip.h-hbar)*popup.scroll/max,2,hbar),1,t.scrollbar,r,44)
         end
     end
     d.alpha=alpha

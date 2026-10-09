@@ -1,12 +1,17 @@
 # Validation and live runtime smoke test
 
-Verified locally on 2026-10-08:
+Verified locally on 2026-10-09 (version 1.0.19):
 
-- All six source modules and the bundled release parse under native Luau 0.741.
-- 39 interaction groups pass under native Luau and Lupa 2.8 (Lua 5.5).
+- All source modules and the bundled release parse under native Luau 0.741.
+- 57 interaction groups pass under native Luau 0.741 and Lupa 2.8 (Lua 5.5).
 - The complete example executes, reruns, and cleans up under both mock runtimes.
 - The bundle reproduces exactly from source with `scripts/build.py --check`.
 - Drawing-only layout was visually reviewed using mock-rendered previews.
+- The Windows 10 light values in `src/Internal/Theme.lua` were checked against the
+  stock Settings app (Windows 10 Pro 22H2, build 19045, 96 DPI, default `#0078D7`
+  accent) by capturing the real window and measuring pixels and UI Automation
+  rectangles. Captures and measurements are documentation of that pass, not a
+  runtime dependency of the library.
 
 The mocks exercise the actual release, not a separate implementation. Coverage:
 
@@ -84,3 +89,20 @@ Version 1.0.10 keeps the input GUI on Roblox's default safe-area origin so each
 invisible hit region's AbsolutePosition matches UIS screen coordinates. Only its
 AbsolutePosition/AbsoluteSize are used for hit testing; pointer sampling remains
 GetMouseLocation.
+
+Version 1.0.19 regressions cover the Windows 10 palette and surfaces (white page,
+`#F2F2F2` chrome pane, `#DBDBDB` transient border), the Settings navigation pane
+(320-pixel chrome running behind the caption, 48-pixel rows, `#E6E6E6` list-low
+selection, 4 x 24 accent marker, 48-pixel label inset), the search box (2-pixel
+border, accent focus ring, right-hand magnifier), the toggle and slider templates
+(44 x 20 track, 12-pixel knob, 14-pixel On/Off gap, hollow off state, 2-pixel
+`#999999` rail, 8-pixel gripper, 32-pixel hit area), combo and flyout styling
+(2-pixel field border, `#F2F2F2` flyout surface, accent-low selection, 20 x 20
+checkboxes), flyout notification cards without an accent stripe, the conditional
+back button, the disabled empty combo (SystemControlDisabledBaseLowBrush), and the
+overlay scrollbar that fades in while scrolling and thickens
+under the pointer.
+
+Not covered by the mocks: native focus/clipboard behaviour, real font metrics,
+executor rendering, and how the Drawing backend draws the rounded bands. Those
+still require the live smoke test below.

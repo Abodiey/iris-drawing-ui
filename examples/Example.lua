@@ -3,7 +3,7 @@ local previous = rawget(_G, 'IrisDrawingExample')
 if previous then previous:Destroy() end
 
 local UI = loadstring(game:HttpGet(
-    'https://raw.githubusercontent.com/Abodiey/iris-drawing-ui/main/dist/Iris.lua?v=1.0.18'
+    'https://raw.githubusercontent.com/Abodiey/iris-drawing-ui/main/dist/Iris.lua?v=1.0.19'
 ))()
 _G.IrisDrawingExample = UI
 
@@ -43,7 +43,7 @@ General:AddKeybind({
     end,
 })
 General:AddColorPicker({
-    Name = 'Accent value', Flag = 'Accent', Default = Color3.fromRGB(0, 120, 212),
+    Name = 'Accent value', Flag = 'Accent', Default = Color3.fromRGB(0, 120, 215),
     Callback = function(value) print('Selected RGB:', value.R, value.G, value.B) end,
 })
 General:AddSeparator({Name = 'Actions'})

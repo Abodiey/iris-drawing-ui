@@ -117,7 +117,7 @@ function Controls.Create(section,kind,opts)
     elseif kind=='Keybind' then
         assert(opts.OnChanged==nil or type(opts.OnChanged)=='function','OnChanged must be a function')
         c.OnChanged=opts.OnChanged; if default==nil then default='None' end
-    elseif kind=='ColorPicker' then if default==nil then default=Color3.fromRGB(0,122,255) end end
+    elseif kind=='ColorPicker' then if default==nil then default=Color3.fromRGB(0,120,215) end end
     if valueKinds[kind] then c.Value=c:Validate(default) end
     local metrics=Theme.metrics
     local heights={Slider=metrics.sliderHeight,Toggle=metrics.toggleHeight,Button=metrics.buttonHeight,Separator=metrics.separatorHeight,Label=metrics.labelHeight}

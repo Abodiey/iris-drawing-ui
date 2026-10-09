@@ -549,14 +549,14 @@ test('Windows 10 caption buttons, rectangular fields, checkbox options and focus
     -- Caret is near black on a white field instead of white on white.
     local caretFound=false
     for _,d in ipairs(Mock.drawings) do
-        if d._kind=='Square' and d.Visible and d.Color==Color3.fromRGB(32,32,32) and d.Size.X==1 and d.Size.Y==18 then caretFound=true end
+        if d._kind=='Square' and d.Visible and d.Color==Color3.fromRGB(0,0,0) and d.Size.X==1 and d.Size.Y==18 then caretFound=true end
     end
     assert(caretFound)
     rt:Blur(false)
     clickHit(rt,multi,'dropdown'); Mock.tick(20)
     local checkboxFound=false
     for _,d in ipairs(Mock.drawings) do
-        if d._kind=='Square' and d.Visible and d.Size.X==16 and d.Size.Y==16 then checkboxFound=true end
+        if d._kind=='Square' and d.Visible and d.Size.X==20 and d.Size.Y==20 then checkboxFound=true end
     end
     assert(checkboxFound)
     rt:ClosePopup(); Mock.tick(20)
@@ -721,6 +721,256 @@ test('Settings caption maximize restores size and position',function()
     equal(w.Size.X,700); equal(w.Size.Y,600)
     equal(w.Position.X,40); equal(w.Position.Y,50)
     assert(not w._restore)
+    item:Destroy()
+end)
+
+test('Windows 10 light palette uses the in-box theme resource colours',function()
+    window:SetVisible(true); window:SetMinimized(false); window.Scroll=0; rt:ClosePopup(); rt:Dirty(); Mock.tick(60)
+    local background,border,field
+    for _,d in ipairs(Mock.drawings) do
+        if not d.Removed and d.Visible and d._kind=='Square' then
+            if d.ZIndex==2 and d.Color==Color3.fromRGB(255,255,255) and d.Size.X==window.Size.X then background=d end
+            if d.ZIndex==3 and d.Color==Color3.fromRGB(219,219,219) then border=d end
+            if d.Color==Color3.fromRGB(255,255,255) and d.Size.Y==32 and d.Size.X==280 then field=d end
+        end
+    end
+    assert(background,'Window background must be white')
+    assert(border,'Window border must use SystemControlTransientBorderBrush #DBDBDB')
+    assert(field,'Text fields must stay white')
+end)
+
+test('Settings navigation pane: 320 px chrome, 48 px rows, list-low selection and 4x24 accent bar',function()
+    local item=NewUI(Bundle)
+    local w=item:CreateWindow({Name='Settings',Size=Vector2.new(960,760),Position=Vector2.new(0,0)})
+    local sections={}
+    for i=1,6 do
+        local s=w:AddSection('Section '..i); sections[i]=s
+        s:AddToggle({Name='Feature '..i,Flag='feature'..i})
+    end
+    Mock.tick(60)
+    local runtime=item._runtime
+    local pane
+    for _,d in ipairs(Mock.drawings) do
+        if not d.Removed and d.Visible and d._kind=='Square' and d.Color==Color3.fromRGB(242,242,242)
+            and d.Size.X==320 and d.Size.Y>=w.Size.Y-2 then pane=d end
+    end
+    assert(pane,'Navigation pane must use SystemControlPageBackgroundChromeLowBrush #F2F2F2')
+    equal(pane.Position.X,w.Position.X)
+    -- The acrylic pane runs behind the transparent caption bar.
+    equal(pane.Position.Y,w.Position.Y)
+    local rows={}
+    for _,h in ipairs(runtime.hits) do if h.role=='sectionNavigation' then table.insert(rows,h) end end
+    assert(#rows==6,'Expected six navigation rows')
+    for _,h in ipairs(rows) do
+        equal(h.frame.AbsoluteSize.X,320)
+        equal(h.frame.AbsoluteSize.Y,48)
+    end
+    equal(rows[2].frame.AbsolutePosition.Y-rows[1].frame.AbsolutePosition.Y,48)
+    local home=hit(runtime,w,'home')
+    equal(home.frame.AbsolutePosition.Y,w.Position.Y+40)
+    equal(home.frame.AbsoluteSize.Y,48)
+    local fill,bar
+    for _,d in ipairs(Mock.drawings) do
+        if not d.Removed and d.Visible and d._kind=='Square' then
+            if d.Color==Color3.fromRGB(230,230,230) and d.Size.X>=300 and d.Size.Y==48 then fill=d end
+            if d.Color==Color3.fromRGB(0,120,215) and d.Size.X==4 and d.Size.Y==24 then bar=d end
+        end
+    end
+    assert(fill,'Selected navigation row must use SystemListLowColor #E6E6E6')
+    assert(bar,'Selected row must draw the 4x24 accent indicator')
+    equal(bar.Position.X,w.Position.X)
+    local label
+    for _,d in ipairs(Mock.drawings) do
+        if not d.Removed and d.Visible and d._kind=='Text' and d.Text==sections[1].Name then label=d end
+    end
+    assert(label and label.Position.X==rows[1].frame.AbsolutePosition.X+48,'Navigation labels start 48 px in')
+    item:Destroy()
+end)
+
+test('Settings search box: 2 px border, accent focus and a right-hand magnifier',function()
+    local item=NewUI(Bundle)
+    local w=item:CreateWindow({Name='Search',Size=Vector2.new(960,700),Position=Vector2.new(0,0)})
+    w:AddSection('System'):AddToggle({Name='Thing'})
+    Mock.tick(60)
+    local runtime=item._runtime
+    local search=runtime.search
+    local function borderOf(color)
+        for _,d in ipairs(Mock.drawings) do
+            if not d.Removed and d.Visible and d._kind=='Square' and d.Color==color
+                and d.Size.X==search._anchor.w and d.Size.Y==2 then return d end
+        end
+    end
+    assert(borderOf(Color3.fromRGB(153,153,153)),'Unfocused search box needs a 2 px #999999 border')
+    equal(search._anchor.w,288)
+    equal(search._anchor.h,32)
+    local magnifier=false
+    for _,d in ipairs(Mock.drawings) do
+        if not d.Removed and d.Visible and d._kind=='Circle' and d.Radius==5
+            and d.Position.X>search._anchor.x+search._anchor.w-30 then magnifier=true end
+    end
+    assert(magnifier,'The magnifier glyph belongs at the right of the box')
+    clickHit(runtime,search,'textbox'); Mock.tick(1)
+    assert(runtime.edit==search)
+    assert(borderOf(Color3.fromRGB(0,120,215)),'Focused search box border must turn accent')
+    Mock.press('Escape'); Mock.tick(1)
+    item:Destroy()
+end)
+
+test('toggle and slider follow the Windows 10 control templates',function()
+    local item=NewUI(Bundle)
+    local w=item:CreateWindow({Name='Controls',Size=Vector2.new(900,700),Position=Vector2.new(0,0)})
+    local s=w:AddSection('System')
+    local toggle=s:AddToggle({Name='Night light',Flag='night',Default=true})
+    local slider=s:AddSlider({Name='Brightness',Flag='bright',Min=0,Max=100,Default=50})
+    Mock.tick(60)
+    local runtime=item._runtime
+    local track=hit(runtime,toggle,'toggle')
+    equal(track.frame.AbsoluteSize.X,44)
+    equal(track.frame.AbsoluteSize.Y,20)
+    local knob,label,offTrack
+    for _,d in ipairs(Mock.drawings) do
+        if not d.Removed and d.Visible then
+            if d._kind=='Circle' and d.Radius==6 and d.Color==Color3.fromRGB(255,255,255) then knob=d end
+            if d._kind=='Text' and d.Text=='On' then label=d end
+        end
+    end
+    assert(knob,'Toggle knob must stay a 12 px circle')
+    local switch=track.frame
+    assert(label and label.Position.X>=switch.AbsolutePosition.X+switch.AbsoluteSize.X+13
+        and label.Position.X<=switch.AbsolutePosition.X+switch.AbsoluteSize.X+15,'On label sits 14 px after the track')
+    equal(knob.Position.X,switch.AbsolutePosition.X+44-4-6)
+    toggle:SetValue(false); Mock.tick(25)
+    local stroke,interior,pill
+    for _,d in ipairs(Mock.drawings) do
+        if not d.Removed and d.Visible and (d.Transparency or 0)>0 and d._kind=='Square' then
+            local inside=d.Position.Y>=switch.AbsolutePosition.Y-1
+                and d.Position.Y<=switch.AbsolutePosition.Y+switch.AbsoluteSize.Y
+                and d.Position.X>=switch.AbsolutePosition.X-1
+                and d.Position.X<=switch.AbsolutePosition.X+switch.AbsoluteSize.X
+            if inside and d.Color==Color3.fromRGB(51,51,51) then stroke=d end
+            if inside and d.Color==Color3.fromRGB(255,255,255) then interior=d end
+            if inside and d.Color==Color3.fromRGB(0,120,215) then pill=d end
+        end
+    end
+    assert(stroke,'Off toggle keeps a #333333 stroke')
+    assert(interior,'Off toggle is hollow rather than grey-filled')
+    assert(not pill,'The accent fill must be gone when the toggle is off')
+    local sliderHit=hit(runtime,slider,'slider')
+    equal(sliderHit.frame.AbsoluteSize.Y,32)
+    local rail,thumb
+    for _,d in ipairs(Mock.drawings) do
+        if not d.Removed and d.Visible and d._kind=='Square' then
+            if d.Color==Color3.fromRGB(153,153,153) and d.Size.Y==2 and d.Size.X==sliderHit.data.w then rail=d end
+            if d.Color==Color3.fromRGB(0,120,215) and d.Size.X==8 then thumb=d end
+        end
+    end
+    assert(rail,'Slider rail must use SliderTrackFill #999999 at 2 px')
+    assert(thumb,'Slider thumb must be an 8 px wide gripper')
+    item:Destroy()
+end)
+
+test('combo fields, flyout lists and checkboxes use the Windows 10 surfaces',function()
+    window:SetVisible(true); window:SetMinimized(false); window.Scroll=0; rt:ClosePopup(); rt:Dirty(); Mock.tick(60)
+    local field=dropdown._anchor
+    local border
+    for _,d in ipairs(Mock.drawings) do
+        if not d.Removed and d.Visible and d._kind=='Square' and d.Color==Color3.fromRGB(153,153,153)
+            and d.Size.X==field.w and d.Size.Y==2 then border=d end
+    end
+    assert(border,'Combo fields use a 2 px #999999 border')
+    clickHit(rt,dropdown,'dropdown'); Mock.tick(20)
+    local popup=rt.popup
+    assert(popup,'Dropdown must open')
+    local surface,flyoutBorder,selected
+    for _,d in ipairs(Mock.drawings) do
+        if not d.Removed and d.Visible and d._kind=='Square' then
+            if d.Color==Color3.fromRGB(242,242,242) and d.Size.X==popup.rect.w and d.Size.Y==popup.rect.h then surface=d end
+            if d.Color==Color3.fromRGB(219,219,219) and d.Size.X==popup.rect.w and d.Size.Y==1 then flyoutBorder=d end
+            if d.Color==Color3.fromRGB(153,201,239) then selected=d end
+        end
+    end
+    assert(surface,'Flyout surface must use the transient background #F2F2F2')
+    assert(flyoutBorder,'Flyout border must use the transient border #DBDBDB')
+    assert(selected,'The selected option must use the accent-low highlight')
+    rt:ClosePopup(); Mock.tick(1)
+    clickHit(rt,multi,'dropdown'); Mock.tick(20)
+    local box
+    for _,d in ipairs(Mock.drawings) do
+        if not d.Removed and d.Visible and d._kind=='Square' and d.Size.X==20 and d.Size.Y==20 then box=d end
+    end
+    assert(box,'Multi-select checkboxes are 20 x 20')
+    rt:ClosePopup(); Mock.tick(1)
+end)
+
+test('notifications use the transient flyout surface without an accent stripe',function()
+    ui:Notify({Title='Flyout',Content='Body',Duration=4}); Mock.tick(30)
+    local card,stripe
+    for _,d in ipairs(Mock.drawings) do
+        if not d.Removed and d.Visible and d._kind=='Square' then
+            if d.Color==Color3.fromRGB(242,242,242) and d.Size.Y==72 then card=d end
+            if d.Color==Color3.fromRGB(0,120,215) and d.Size.X==3 then stripe=d end
+        end
+    end
+    assert(card,'Notification card must use the transient surface')
+    assert(not stripe,'Windows 10 toasts have no accent stripe')
+    Mock.tick(300); equal(#rt.notifications,0)
+end)
+
+test('back button appears only while history is available',function()
+    local item=NewUI(Bundle)
+    local w=item:CreateWindow({Name='History',Size=Vector2.new(960,700),Position=Vector2.new(0,0)})
+    local first=w:AddSection('First'); first:AddLabel({Name='Start'})
+    local second=w:AddSection('Second')
+    for i=1,30 do second:AddLabel({Name='Row '..i}) end
+    Mock.tick(60)
+    local runtime=item._runtime
+    assert(w.MaxScroll>0,'Content must overflow for a history entry')
+    fails(function() hit(runtime,w,'back') end)
+    clickHit(runtime,second,'sectionNavigation'); Mock.tick(1)
+    assert(hit(runtime,w,'back'),'Back button must exist once history is recorded')
+    clickHit(runtime,w,'back'); Mock.tick(1)
+    equal(w.Scroll,0)
+    fails(function() hit(runtime,w,'back') end)
+    item:Destroy()
+end)
+
+test('overlay scrollbar fades in while scrolling and thickens under the pointer',function()
+    local item=NewUI(Bundle)
+    local w=item:CreateWindow({Name='Scrolling',Size=Vector2.new(900,400),Position=Vector2.new(0,0)})
+    local section=w:AddSection('List')
+    for i=1,40 do section:AddLabel({Name='Row '..i}) end
+    Mock.tick(60)
+    local runtime=item._runtime
+    assert(w.MaxScroll>0,'Content must overflow')
+    Mock.tick(90); equal(runtime.scrollbarAlpha,0)
+    Mock.move(600,250); Mock.wheel(-100); Mock.tick(12)
+    assert(runtime.scrollbarAlpha>.5,'Scrollbar must fade in while scrolling')
+    equal(runtime.scrollbarGrow,0)
+    local clip=runtime.contentClip
+    Mock.move(w.Position.X+w.Size.X-6,clip.y+20); Mock.tick(30)
+    assert(runtime.scrollbarGrow>.5,'Scrollbar must thicken under the pointer')
+    Mock.move(600,250); Mock.tick(200)
+    equal(runtime.scrollbarAlpha,0)
+    equal(runtime.scrollbarGrow,0)
+    item:Destroy()
+end)
+
+test('a combo with no options is disabled like the Settings app',function()
+    local item=NewUI(Bundle)
+    local w=item:CreateWindow({Name='Disabled',Size=Vector2.new(900,600),Position=Vector2.new(0,0)})
+    local s=w:AddSection('System')
+    local dd=s:AddDropdown({Name='Mode',Flag='mode',Options={}})
+    Mock.tick(60)
+    local runtime=item._runtime
+    fails(function() hit(runtime,dd,'dropdown') end)
+    local disabled
+    for _,d in ipairs(Mock.drawings) do
+        if not d.Removed and d.Visible and d._kind=='Square' and d.Color==Color3.fromRGB(204,204,204)
+            and d.Size.Y==32 and d.Size.X==280 then disabled=d end
+    end
+    assert(disabled,'An empty combo must use SystemControlDisabledBaseLowBrush')
+    dd:SetOptions({'Light','Dark'}); Mock.tick(1)
+    assert(hit(runtime,dd,'dropdown'),'Supplying options must re-enable the combo')
     item:Destroy()
 end)
 

@@ -9,7 +9,7 @@ There is no gameplay code and no dependency on JJS or any other project.
 
 ```lua
 local UI = loadstring(game:HttpGet(
-    'https://raw.githubusercontent.com/Abodiey/iris-drawing-ui/main/dist/Iris.lua?v=1.0.18'
+    'https://raw.githubusercontent.com/Abodiey/iris-drawing-ui/main/dist/Iris.lua?v=1.0.19'
 ))()
 local Window = UI:CreateWindow({Name = 'Example'})
 local Section = Window:AddSection('General')
@@ -40,20 +40,31 @@ Native focus and camera input consumption still need verification in the executo
 
 ## Visual design
 
-Version 1.0.18 uses the Windows 10 Settings shell: a white title bar, back
-button, minimize/maximize/close controls, neutral left navigation material,
-blue active marker, Home, and a working Find a setting field. The first section
-is the 28-pixel page heading; later sections use plain 20-pixel headings without
-decorative rules. Fields are 280 x 32 pixels, switches 44 x 20 pixels, body text and informational labels
+Version 1.0.19 uses the Windows 10 Settings shell: a transparent caption over the
+page surface, a back button, minimize/maximize/close controls, a neutral
+navigation material, a blue active marker, Home, and a working Find a setting
+field. The first section is the 28-pixel page heading; later sections use plain
+20-pixel headings without decorative rules. Fields are 280 x 32 pixels, switches
+44 x 20 pixels, body text and informational labels
 14 pixels, and title-bar captions 12 pixels. The fallback Drawing font is scaled to bring
 its metrics closer to Segoe UI.
+
+The navigation pane is a full-height `SystemControlPageBackgroundChromeLowBrush`
+surface (`#F2F2F2`): it runs behind the caption bar, so the title and the back
+button sit over it exactly as they do in the Settings app. Home is the first
+48-pixel row, the
+search box is 288 x 32 pixels with a 2-pixel border and the magnifier on the
+right, and the window name acts as the single group header above the category
+list. Selecting a section paints the row with `SystemListLowColor` (`#E6E6E6`)
+and a 4 x 24-pixel accent marker at the pane's left edge.
 
 Wide windows (900 pixels or more) have a 320-pixel navigation pane.
 Widths of 720-899 use 256 pixels, and 600-719 use 200 pixels. Narrower windows
 keep the single content column. Section shortcuts scroll the existing page;
 they do not hide controls or change flags. Search matches section and control
 names, and clicking a result scrolls to the matching setting. Home returns to
-the top; Back restores prior scroll positions. Navigation scrolls independently.
+the top; Back restores prior scroll positions and only exists while there is a
+recorded position. Navigation scrolls independently.
 
 Click and hover targets match visible controls in both X and Y; blank row
 space and labels do not open dropdowns, toggle switches, or capture input.
@@ -62,15 +73,18 @@ outside it until release. All existing methods, configs and callback semantics
 remain unchanged.
 
 Colors, typography, spacing and motion are centralized in
-`src/Internal/Theme.lua`; `src/Internal/Shell.lua` draws navigation.
-Segoe UI is used only when the backend exposes it. Madium exposes UI, System,
+`src/Internal/Theme.lua`; `src/Internal/Shell.lua` draws navigation. Segoe UI is used only when the backend exposes it. Madium exposes UI, System,
 Plex and Monospace, so its current release uses the closest fallback. Drawing
-has no native backdrop blur or ClearType text rasterizer: the sidebar uses an
-opaque neutral material. This is a faithful layout and control adaptation,
+has no native backdrop blur or ClearType text rasterizer: the navigation
+material is the documented acrylic fallback tone rather than a live blur. This
+is a faithful layout and control adaptation,
 not a pixel-identical native Windows compositor.
 
 Design references: Microsoft's [Windows 10 UWP guidelines](https://download.microsoft.com/download/2/4/A/24A81A29-77CF-4AA5-967E-64E42554F21B/UWP%20app%20design%20guidelines%20v1509.pdf)
 and [compact control sizing](https://learn.microsoft.com/en-us/windows/apps/develop/ui/controls/compact-sizing).
+Palette and control values follow the Windows 10 in-box
+[XAML theme resources](https://learn.microsoft.com/en-us/windows/apps/design/style/xaml-theme-resources)
+and were checked against the stock Settings app on Windows 10 22H2 at 100% scaling.
 
 ## Window and sections
 
@@ -137,11 +151,11 @@ Section:AddSeparator({Name = 'Advanced'})  -- Name may be omitted for a plain li
 | Button | No value or flag. Callback receives no arguments. Fires on mouse-down. |
 | Toggle | Boolean. Default `false`. |
 | Slider | Finite number. Required `Min` and `Max` with `Max > Min`; positive `Step` defaults to 1. Values clamp and snap relative to Min. Default Min. |
-| Dropdown | Exact option string. Unique nonempty strings in a dense `Options` array, up to 500. Defaults to the first option; an empty list uses `''`. |
+| Dropdown | Exact option string. Unique nonempty strings in a dense `Options` array, up to 500. Defaults to the first option; an empty list uses `''` and renders as a disabled combo box that does not accept clicks. |
 | MultiDropdown | Array of option strings, default `{}`. Rejects unknown/duplicate selections and stores them in Options order. |
 | Textbox | Single-line UTF-8 string, default `''`. MaxLength is 1أ¢â‚¬â€œ4096 codepoints, default 256. Control characters become spaces. Enter, outside click, scrolling, hiding, or native focus loss commits; Escape cancels. Mouse and keyboard selection are supported. |
 | Keybind | KeyCode name string or `'None'`, default `'None'`. `OnChanged(keyName)` reports binding changes. `Callback(true/false)` reports press/release, never binding changes. Click to capture; Escape cancels; Backspace/Delete clears. The window ToggleKey is reserved. Typing in any native TextBox suppresses actions. |
-| ColorPicker | Color3, default iOS blue. Callback/GetValue return Color3. The popup uses saturation/value and hue strips; config uses RGB arrays. No alpha channel. |
+| ColorPicker | Color3, default Windows 10 accent blue (`#0078D7`). Callback/GetValue return Color3. The popup uses saturation/value and hue strips; config uses RGB arrays. No alpha channel. |
 | Label | Display only; `SetText(string)`. No Flag, Default, or Callback. |
 | Separator | Display only; optional Name. No Flag, Default, or Callback. |
 
@@ -267,10 +281,14 @@ On the tested 1280ط£â€”1024 monitor this produces +23 for a 1280ط£â€
 
 ## Windows 10 light appearance
 
-The internal theme in `src/Internal/Theme.lua` defines the palette, font choices, and brief motion timings. The window has square corners, a flat caption bar and Windows-style caption buttons; content uses plain Settings-style rows with rectangular bordered fields. Multi-select options use square checkboxes. Toggle tracks and slider thumbs retain native rounded geometry. Popups and notifications use opaque surfaces and thin borders; the standard Drawing API cannot reproduce desktop backdrop blur.
+The internal theme in `src/Internal/Theme.lua` defines the palette, font choices, and brief motion timings. The window has square corners, a flat caption bar and Windows-style caption buttons; content uses plain Settings-style rows with rectangular bordered fields. Multi-select options use square 20-pixel checkboxes. Toggle tracks and slider thumbs retain native rounded geometry. Popups and notifications use the transient flyout surface and a thin border; the standard Drawing API cannot reproduce desktop backdrop blur.
+
+The accent is the Windows 10 default `#0078D7`. Windows 11 uses `#0078D4`; that value and the Fluent 2 brushes (`ControlFillColor*`, `TextFillColor*`, `SubtleFillColor*`) are deliberately not used here. Translucent in-box brushes are composited over white: text `#000000`, secondary text `#666666`, disabled text `#999999`, control borders `#999999`, hover borders `#666666`, list low `#E6E6E6`, list medium `#CCCCCC`, button fill `#CCCCCC` (pressed `#999999`), toggle stroke `#333333`, slider rail `#999999`, and the flyout border `#DBDBDB`.
+
+Interaction states follow the same resources: buttons keep their fill on hover and gain a `#999999` border, toggles blend toward the accent-high `#4DA1E3` on hover and `#666666` when pressed, slider thumbs darken to `#171717` on hover, combo fields take the `#CCCCCC` list-medium hover fill, and the close caption button uses `#E81123`. The content scrollbar is an overlay sliver that fades in while scrolling, thickens under the pointer, and hides again; the back button exists only while a scroll position has been recorded.
 
 Text uses a named Segoe UI / Segoe UI Semibold Drawing font if the backend exposes it through `Drawing.Fonts`; otherwise it uses the available proportional Plex font (ID 2 fallback). The standard Drawing API exposes neither arbitrary system font names nor font weights, so unsupported semibold falls back to regular weight with size hierarchy. No duplicate-text fake bold is used.
 
-Hover transitions take 100 ms, control transitions 150 ms, and popup fades 160 ms. They share the central update system and stop when settled. Retiring popups fade visually without retaining input ownership. Input, flags/configs, the public API and viewport-origin correction are unchanged. Disabled theme tokens are available internally; no disabled-control API or separate checkbox control is added.
+Hover transitions take 100 ms, control transitions 150 ms, popup fades 160 ms, and the scrollbar fade 200 ms. They share the central update system and stop when settled. Retiring popups fade visually without retaining input ownership. Input, flags/configs, the public API and viewport-origin correction are unchanged. Disabled theme tokens are available internally; no disabled-control API or separate checkbox control is added.
 
 Design references: Microsoft's [Windows 10 UWP design guidelines](https://download.microsoft.com/download/2/4/A/24A81A29-77CF-4AA5-967E-64E42554F21B/UWP%20app%20design%20guidelines%20v1509.pdf) and [Windows title-bar guidance](https://learn.microsoft.com/en-us/windows/apps/design/basics/titlebar-design). This styling deliberately uses the requested square Windows 10 geometry rather than the later rounded Windows 11 defaults.

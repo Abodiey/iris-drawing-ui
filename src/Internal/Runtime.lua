@@ -5,7 +5,7 @@ local Theme=require('Internal.Theme')
 local Shell=require('Internal.Shell')
 local Runtime={}; Runtime.__index=Runtime
 function Runtime.new(ui)
-    local self=setmetatable({ui=ui,connections={},hits={},hitFrames={},hitCount=0,dirty=true,alpha=0,height=Theme.titleHeight,visualStates={},visualAnimations={},notifications={},held={},animations={},pointer=Vector2.new(0,0)},Runtime)
+    local self=setmetatable({ui=ui,connections={},hits={},hitFrames={},hitCount=0,dirty=true,alpha=0,height=Theme.titleHeight,visualStates={},visualAnimations={},notifications={},held={},animations={},pointer=Vector2.new(0,0),lastScroll=0,scrollbarAlpha=0,scrollbarGrow=0,scrollbarHold=false},Runtime)
     local ok,message=pcall(function()
         self.input=game:GetService('UserInputService')
         self.actionService=game:GetService('ContextActionService')
@@ -268,6 +268,21 @@ function Runtime:Step(dt)
     elseif self.alpha~=targetAlpha then self.alpha=targetAlpha; self:Dirty() end
     if math.abs(self.height-targetHeight)>.1 then self.height=self.height+(targetHeight-self.height)*ease; self:Dirty()
     elseif self.height~=targetHeight then self.height=targetHeight; self:Dirty() end
+    -- Windows 10 scrollbars are overlay slivers that fade in while scrolling or
+    -- while the pointer rests in the gutter, and thicken under the pointer.
+    local metrics=Theme.metrics
+    local scrollTarget=0
+    if self.window and self.window.MaxScroll>0 and (os.clock()-self.lastScroll)<1.2 then scrollTarget=1 end
+    local gutter=self.contentClip and Util.rect(self.window.Position.X+self.window.Size.X-metrics.scrollbarWidth,self.contentClip.y,metrics.scrollbarWidth,self.contentClip.h)
+    local overGutter=gutter~=nil and self.window.Visible and not self.window.Minimized and Util.inside(gutter,self.pointer)
+    local growTarget=(overGutter or self.scrollbarHold) and 1 or 0
+    if growTarget==1 and self.window.MaxScroll>0 then scrollTarget=1 end
+    if math.abs(self.scrollbarAlpha-scrollTarget)>.002 then
+        self.scrollbarAlpha=self.scrollbarAlpha+(scrollTarget-self.scrollbarAlpha)*ease; self:Dirty()
+    elseif self.scrollbarAlpha~=scrollTarget then self.scrollbarAlpha=scrollTarget end
+    if math.abs(self.scrollbarGrow-growTarget)>.002 then
+        self.scrollbarGrow=self.scrollbarGrow+(growTarget-self.scrollbarGrow)*ease; self:Dirty()
+    elseif self.scrollbarGrow~=growTarget then self.scrollbarGrow=growTarget end
     for c,a in pairs(self.animations) do
         a.elapsed=math.min(Theme.motion.control,a.elapsed+dt)
         local progress=a.elapsed/Theme.motion.control
@@ -338,37 +353,47 @@ function Runtime:Draw()
         local x,y,width=w.Position.X,w.Position.Y,w.Size.X
         local height=self.height
         local r=Util.rect(x,y,width,height)
+        local navigationWidth=Shell.Width(width)
+        local showBack=navigationWidth>0 and #self.history>0
+        local backWidth=showBack and 48 or 0
         d:Rect(r,t.bg,nil,2)
-        d:Border(r,t.line,nil,3)
-        d:Rect(Util.rect(x+1,y+1,width-2,Theme.titleHeight-1),t.white,r,3)
-        d:Text(w.Name,x+62,y+9,t.text,width-210,r,4,t.captionSize)
+        d:Border(r,t.line,nil,3,1)
+        -- The Settings caption is transparent: the navigation material and the
+        -- page background show through behind the title and the caption buttons.
+        Shell.Pane(self,r,navigationWidth)
+        if showBack then
+            d:Line(x+32,y+16,x+8,y+16,t.text,r,5)
+            d:Line(x+8,y+16,x+14,y+10,t.text,r,5)
+            d:Line(x+8,y+16,x+14,y+22,t.text,r,5)
+        end
+        local titleX=x+(showBack and 62 or 16)
+        d:Text(w.Name,titleX,y+10,t.text,width-(titleX-x)-200,r,4,t.captionSize)
         local close=Util.rect(x+width-47,y+1,46,Theme.titleHeight-1)
         local maximize=Util.rect(x+width-93,y+1,46,Theme.titleHeight-1)
         local minimize=Util.rect(x+width-139,y+1,46,Theme.titleHeight-1)
-        local closeAmount=self:Visual(w,'close')
         local pressed=self.pressedHit
         local closePressed=pressed and pressed.owner==w and pressed.role=='close'
-        d:Rect(close,closePressed and t.closePressed or Theme.Mix(t.white,t.closeHover,closeAmount),r,4)
-        d:Rect(minimize,pressed and pressed.owner==w and pressed.role=='minimize' and t.pressed or Theme.Mix(t.white,t.hover,self:Visual(w,'minimize')),r,4)
-        d:Rect(maximize,Theme.Mix(t.white,t.hover,self:Visual(w,'maximize')),r,4)
-        d:Border(Util.rect(maximize.x+19,y+12,9,8),t.text,r,5)
+        local minimizePressed=pressed and pressed.owner==w and pressed.role=='minimize'
+        local maximizePressed=pressed and pressed.owner==w and pressed.role=='maximize'
+        local closeAmount=self:Visual(w,'close')
+        d:Rect(close,closePressed and t.closePressed or Theme.Mix(t.bg,t.closeHover,closeAmount),r,4)
+        d:Rect(minimize,minimizePressed and t.pressed or Theme.Mix(t.bg,t.hover,self:Visual(w,'minimize')),r,4)
+        d:Rect(maximize,maximizePressed and t.pressed or Theme.Mix(t.bg,t.hover,self:Visual(w,'maximize')),r,4)
+        d:Border(Util.rect(maximize.x+19,y+12,9,8),t.text,r,5,1)
         if w._restore then d:Line(maximize.x+21,y+10,maximize.x+30,y+10,t.text,r,5); d:Line(maximize.x+30,y+10,maximize.x+30,y+18,t.text,r,5) end
-        local back=Util.rect(x,y,48,32)
-        local backColor=#self.history>0 and t.text or t.muted
-        d:Line(x+18,y+16,x+30,y+16,backColor,r,5)
-        d:Line(x+18,y+16,x+23,y+11,backColor,r,5)
-        d:Line(x+18,y+16,x+23,y+21,backColor,r,5)
         local icon=closePressed and t.white or Theme.Mix(t.text,t.white,closeAmount)
         local cx,cy=close.x+23,y+16
         d:Line(cx-4,cy-4,cx+4,cy+4,icon,r,5)
         d:Line(cx-4,cy+4,cx+4,cy-4,icon,r,5)
-        if w.Minimized then d:Border(Util.rect(minimize.x+18,y+12,10,8),t.text,r,5)
-        else d:Rect(Util.rect(minimize.x+18,y+17,10,1),t.text,r,5) end
+        if w.Minimized then d:Border(Util.rect(minimize.x+18,y+12,10,8),t.text,r,5,1)
+        else d:Rect(Util.rect(minimize.x+18,y+16,10,1),t.text,r,5) end
         if w.Visible then
             self:Hit(Util.rect(x,y,width,Theme.titleHeight),w,'windowDrag')
-            self:Hit(minimize,w,'minimize'); self:Hit(maximize,w,'maximize'); self:Hit(close,w,'close'); self:Hit(back,w,'back')
+            self:Hit(minimize,w,'minimize'); self:Hit(maximize,w,'maximize'); self:Hit(close,w,'close')
+            -- The back button only exists while there is somewhere to go back to,
+            -- matching the Home page of the Settings app.
+            if showBack then self:Hit(Util.rect(x,y,backWidth,Theme.titleHeight),w,'back') end
         end
-        local navigationWidth=Shell.Width(width)
         if navigationWidth==0 and self.edit==self.search then self:Blur(true) end
         self.contentClip=Util.rect(x+navigationWidth+metrics.padding,y+metrics.contentTop,width-navigationWidth-metrics.padding*2,math.max(0,height-metrics.contentTop-metrics.contentBottom))
         local contentHeight=0
@@ -396,12 +421,15 @@ function Runtime:Draw()
                 end
                 cy=cy+metrics.sectionGap
             end
-            if w.MaxScroll>0 then
+            if w.MaxScroll>0 and self.scrollbarAlpha>.002 then
                 local track=self.contentClip
-                local thumb=math.max(24,track.h*track.h/contentHeight)
-                local bar=Util.rect(x+width-8,track.y+(track.h-thumb)*w.Scroll/w.MaxScroll,3,thumb)
-                d:Rect(bar,t.muted,nil,20)
-                self:Hit(Util.rect(bar.x-4,bar.y,11,bar.h),w,'scrollbar',nil,{track=track,thumb=thumb})
+                local thumb=math.max(metrics.scrollbarMinThumb,track.h*track.h/contentHeight)
+                local thumbWidth=metrics.scrollbarThumb+(metrics.scrollbarThumbHover-metrics.scrollbarThumb)*self.scrollbarGrow
+                local bar=Util.rect(x+width-4-thumbWidth,track.y+(track.h-thumb)*w.Scroll/w.MaxScroll,thumbWidth,thumb)
+                d:Round(bar,thumbWidth/2,Theme.Mix(t.scrollbar,t.scrollbarHover,self.scrollbarGrow),nil,20,self.scrollbarAlpha)
+                if self.scrollbarAlpha>.3 then
+                    self:Hit(Util.rect(x+width-metrics.scrollbarWidth,bar.y,metrics.scrollbarWidth,thumb),w,'scrollbar',nil,{track=track,thumb=thumb})
+                end
             end
             Shell.Sidebar(self,r,navigationWidth)
             if self.retiringPopup then Views.Popup(self,self.retiringPopup,true) end
@@ -417,11 +445,10 @@ function Runtime:Draw()
         local r=Util.rect(viewport.X-width-12+(1-n.alpha)*20,ny-78,width,72)
         ny=ny-84
         d.alpha=n.alpha
-        d:Rect(r,t.surface,nil,60)
-        d:Border(r,t.line,nil,61)
-        d:Rect(Util.rect(r.x,r.y,3,r.h),t.accent,nil,62)
-        d:Text(n.Title,r.x+14,r.y+10,t.text,width-28,r,63,t.bodySize,t.headingFont)
-        d:Text(n.Content,r.x+14,r.y+37,t.muted,width-28,r,63,t.bodySize)
+        d:Rect(r,t.card,nil,60)
+        d:Border(r,t.line,nil,61,1)
+        d:Text(n.Title,r.x+14,r.y+10,t.text,width-28,r,62,t.bodySize,t.headingFont)
+        d:Text(n.Content,r.x+14,r.y+37,t.muted,width-28,r,62,t.bodySize)
     end
     d:Finish()
     for i=self.hitCount+1,#self.hitFrames do self.hitFrames[i].Visible=false end
@@ -457,6 +484,7 @@ function Runtime:UpdateDrag()
     elseif drag.role=='scrollbar' then
         local w,r=self.window,drag.rect
         w.Scroll=Util.clamp((p.Y-r.track.y-drag.offset)/math.max(1,r.track.h-r.thumb),0,1)*w.MaxScroll
+        self.lastScroll=os.clock()
         self:Dirty()
     end
 end
@@ -538,7 +566,7 @@ function Runtime:Began(input,processed)
     elseif role=='keybind' then
         self:Blur(true); self:ClosePopup(); self.capture=c; self:ReleaseKey(c); self:Dirty()
     elseif role=='scrollbar' then
-        self:ClosePopup(); self.capture=nil
+        self:ClosePopup(); self.capture=nil; self.scrollbarHold=true; self.lastScroll=os.clock()
         local r=hit.data
         local current=(r.track.h-r.thumb)*self.window.Scroll/math.max(1,self.window.MaxScroll)
         self.drag={role=role,rect=r,offset=self.pointer.Y-r.track.y-current}
@@ -567,7 +595,7 @@ function Runtime:Changed(input)
         if w and w.Visible and not w.Minimized and Util.inside(self.contentClip,self.pointer) then
             self:Blur(true)
             if self.ui._destroyed then return end
-            self.capture=nil; w.Scroll=Util.clamp(w.Scroll-delta,0,w.MaxScroll); self:Dirty()
+            self.capture=nil; w.Scroll=Util.clamp(w.Scroll-delta,0,w.MaxScroll); self.lastScroll=os.clock(); self:Dirty()
         end
     end
 end
@@ -575,7 +603,7 @@ function Runtime:Ended(input)
     if self.ui._destroyed then return end
     if input.UserInputType==Enum.UserInputType.MouseButton1 then
         if self.drag and self.drag.role=='textselect' and self.box.CursorPosition==self.box.SelectionStart then self.box.SelectionStart=-1 end
-        self.drag=nil; self.pressedHit=nil; self:Dirty()
+        self.drag=nil; self.pressedHit=nil; self.scrollbarHold=false; self:Dirty()
     elseif input.UserInputType==Enum.UserInputType.Keyboard then
         local keys={}
         for c in pairs(self.held) do if c.Value==input.KeyCode.Name then table.insert(keys,c) end end
